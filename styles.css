@@ -28,13 +28,15 @@ button:disabled {
 }
 input[type="file"],
 input[type="number"] {
-  margin: 10px 5px;
+  margin: 10px;
 }
 .controls {
-  margin: 10px 10px;
+  margin: 10px;
 }
-body > div:nth-child(9) {
-  margin: 10px 5px;
+body > div:nth-child(8) {
+  margin: 10px;
+  margin-left: 5px;
+  margin-bottom: 15px;
 }
 .table-container {
   overflow-x: auto;
