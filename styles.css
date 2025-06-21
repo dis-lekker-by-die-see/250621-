@@ -1,0 +1,71 @@
+body {
+  font-family: Arial, sans-serif;
+  margin: 20px;
+  background-color: #f5f5f5; /* Light grey background */
+}
+#output {
+  white-space: pre-wrap;
+  font-family: monospace;
+  border: 1px solid #ccc;
+  padding: 10px;
+  margin-bottom: 20px;
+}
+button {
+  margin: 5px;
+  padding: 10px 15px;
+  background-color: #007bff; /* Blue background */
+  color: white; /* White text */
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+button:hover {
+  background-color: #0056b3; /* Darker blue on hover */
+}
+button:disabled {
+  background-color: #6c757d; /* Grey for disabled */
+  cursor: not-allowed;
+}
+input[type="file"],
+input[type="number"] {
+  margin: 10px 5px;
+}
+.table-container {
+  overflow-x: auto;
+  overflow-y: auto;
+  max-height: 800px; /* Vertical scrolling */
+  min-width: 0; /* Prevent container stretching */
+  width: 100%; /* Container fits parent */
+}
+table {
+  border-collapse: collapse;
+  width: fit-content; /* Size to content */
+  font-size: 14px;
+  table-layout: auto; /* Size columns to content */
+}
+th,
+td {
+  border: 1px solid #ccc;
+  padding: 10px;
+  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: clip;
+  box-sizing: border-box;
+}
+th {
+  background-color: #f0f0f0;
+  position: sticky;
+  top: 0; /* Stick to top of container */
+  z-index: 1; /* Stay above body */
+}
+td:first-child,
+td:nth-child(2) {
+  text-align: left;
+}
+.hidden {
+  display: none;
+}
+.controls {
+  margin-bottom: 10px;
+}
