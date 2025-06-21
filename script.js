@@ -110,6 +110,165 @@ function calculateSMA2(data, periods2) {
   return sma2;
 }
 
+function calculateStdDev(data, stdDevPeriods) {
+  if (!data || data.length === 0) return [];
+  const stdDev = new Array(data.length).fill(0);
+  for (let i = data.length - 1; i >= 0; i--) {
+    let sum = 0;
+    let count = 0;
+    let values = [];
+    // Collect CLOSE prices from index i to i + stdDevPeriods - 1 (newer rows)
+    for (
+      let j = i;
+      j < Math.min(data.length, i + Math.floor(stdDevPeriods));
+      j++
+    ) {
+      const close = data[j][4];
+      if (close !== 0) {
+        // Exclude 0 (filled nulls)
+        sum += close;
+        count++;
+        values.push(close);
+      }
+    }
+    if (count > 0) {
+      const mean = sum / count;
+      // Calculate population standard deviation (STDEV.P)
+      const varianceSum = values.reduce(
+        (acc, val) => acc + Math.pow(val - mean, 2),
+        0
+      );
+      const stdDevP = Math.sqrt(varianceSum / count);
+      // Scale as (STDEV.P / CLOSE[i]) * 100
+      stdDev[i] = data[i][4] !== 0 ? (stdDevP / data[i][4]) * 100 : 0;
+    }
+    // If no valid values, stdDev stays 0 (default)
+  }
+  return stdDev;
+}
+
+// function updateTable(data) {
+//   if (!data) return;
+//   const tbody = document.querySelector("#jsonTable tbody");
+//   tbody.innerHTML = "";
+//   const periods1 =
+//     parseFloat(document.getElementById("sma1Periods").value) || 1;
+//   const periods2 =
+//     parseFloat(document.getElementById("sma2Periods").value) || 1;
+
+//   // Copy data and fill backward null CLOSE prices
+//   const filledData = data.map((row) => [...row]);
+//   let lastClose = 0; // Default to 0 if no earlier non-null CLOSE
+//   for (let i = filledData.length - 1; i >= 0; i--) {
+//     if (filledData[i][4] === null) {
+//       filledData[i][4] = lastClose;
+//     } else {
+//       lastClose = filledData[i][4];
+//     }
+//   }
+
+//   const sma1Values = calculateSMA1(filledData, periods1);
+//   const sma2Values = calculateSMA2(filledData, periods2);
+//   const SIDE = new Array(data.length).fill(0);
+//   const positions = new Array(data.length).fill(0);
+//   const plValues = new Array(data.length).fill(0);
+//   const totalValues = new Array(data.length).fill(0);
+//   let lastPosition = 0;
+//   let runningTotal = 0;
+
+//   // Calculate SIDE, positions, P/L, and total bottom up
+//   for (let i = filledData.length - 1; i >= 0; i--) {
+//     const row = filledData[i];
+//     // Calculate SIDE
+//     if (sma1Values[i] > sma2Values[i]) {
+//       SIDE[i] = 1; // Long
+//     } else if (sma1Values[i] <= sma2Values[i]) {
+//       SIDE[i] = sma1Values[i] === sma2Values[i] ? 0 : -1; // No position or Short
+//     } else {
+//       throw new Error("Invalid SIDE value");
+//     }
+
+//     // Validate SIDE
+//     if (![1, -1, 0].includes(SIDE[i])) {
+//       throw new Error("Invalid SIDE value");
+//     }
+
+//     // Calculate Position
+//     if (i === filledData.length - 1 || SIDE[i] !== SIDE[i + 1]) {
+//       positions[i] = SIDE[i] === 0 ? 0 : row[4]; // Close position (0) or new position
+//     } else {
+//       positions[i] = lastPosition;
+//     }
+//     lastPosition = positions[i];
+
+//     // Calculate P/L
+//     if (i < filledData.length - 1 && positions[i + 1] !== 0) {
+//       if (SIDE[i + 1] === 1) {
+//         // Previous was long
+//         plValues[i] = row[4] - positions[i + 1];
+//       } else if (SIDE[i + 1] === -1) {
+//         // Previous was short
+//         plValues[i] = positions[i + 1] - row[4];
+//       } else if (SIDE[i + 1] === 0) {
+//         // No previous position
+//         plValues[i] = 0;
+//       }
+//       // Add P/L to running total on SIDE change
+//       if (i < filledData.length - 1 && SIDE[i] !== SIDE[i + 1]) {
+//         runningTotal += plValues[i];
+//       }
+//     }
+//     totalValues[i] = runningTotal;
+//   }
+
+//   // Render table rows
+//   data.forEach((row, index) => {
+//     const tr = document.createElement("tr");
+//     let closeBgColor = "";
+//     if (index < filledData.length - 1) {
+//       const nextClose = filledData[index + 1][4];
+//       const currentClose = filledData[index][4];
+//       if (currentClose !== 0 && nextClose !== 0) {
+//         closeBgColor =
+//           currentClose > nextClose
+//             ? "background-color: #90EE90;"
+//             : currentClose < nextClose
+//             ? "background-color: #FFB6C1;"
+//             : "";
+//       }
+//     }
+//     let sideBgColor =
+//       SIDE[index] === 1
+//         ? "background-color: #90EE90;"
+//         : SIDE[index] === -1
+//         ? "background-color: #FFB6C1;"
+//         : "";
+//     tr.innerHTML = `
+//       <td>${index + 1}</td>
+//       <td>${formatJstDate(row[0])}</td>
+//       <td style="${closeBgColor}">${formatPrice(filledData[index][4])}</td>
+//       <td style="${sideBgColor}">${SIDE[index]}</td>
+//       <td>${formatPrice(positions[index])}</td>
+//       <td>${formatPrice(plValues[index])}</td>
+//       <td>${formatPrice(totalValues[index])}</td>
+//       <td>${formatPrice(sma1Values[index])}</td>
+//       <td>${formatPrice(sma2Values[index])}</td>
+//       <td></td>
+//       <td class="extra">${row[0]}</td>
+//       <td class="extra">${formatPrice(row[1])}</td>
+//       <td class="extra">${formatPrice(row[2])}</td>
+//       <td class="extra">${formatPrice(row[3])}</td>
+//       <td class="extra">${formatPrice(row[4])}</td>
+//       <td class="extra">${row[5] ?? "0"}</td>
+//       <td class="extra">${row[6] ?? "0"}</td>
+//       <td class="extra">${row[7] ?? "0"}</td>
+//       <td class="extra">${row[8] ?? "0"}</td>
+//       <td class="extra">${row[9] ?? "0"}</td>
+//     `;
+//     tbody.appendChild(tr);
+//   });
+//   toggleColumns();
+// }
 function updateTable(data) {
   if (!data) return;
   const tbody = document.querySelector("#jsonTable tbody");
@@ -118,6 +277,7 @@ function updateTable(data) {
     parseFloat(document.getElementById("sma1Periods").value) || 1;
   const periods2 =
     parseFloat(document.getElementById("sma2Periods").value) || 1;
+  const stdDevPeriods = 2; // Define STD DEV periods
 
   // Copy data and fill backward null CLOSE prices
   const filledData = data.map((row) => [...row]);
@@ -132,6 +292,7 @@ function updateTable(data) {
 
   const sma1Values = calculateSMA1(filledData, periods1);
   const sma2Values = calculateSMA2(filledData, periods2);
+  const stdDevValues = calculateStdDev(filledData, stdDevPeriods);
   const SIDE = new Array(data.length).fill(0);
   const positions = new Array(data.length).fill(0);
   const plValues = new Array(data.length).fill(0);
@@ -188,6 +349,12 @@ function updateTable(data) {
   data.forEach((row, index) => {
     const tr = document.createElement("tr");
     let closeBgColor = "";
+    let sideBgColor =
+      SIDE[index] === 1
+        ? "background-color: #90EE90;"
+        : SIDE[index] === -1
+        ? "background-color: #FFB6C1;"
+        : "";
     if (index < filledData.length - 1) {
       const nextClose = filledData[index + 1][4];
       const currentClose = filledData[index][4];
@@ -200,22 +367,17 @@ function updateTable(data) {
             : "";
       }
     }
-    let sideBgColor =
-      SIDE[index] === 1
-        ? "background-color: #90EE90;"
-        : SIDE[index] === -1
-        ? "background-color: #FFB6C1;"
-        : "";
     tr.innerHTML = `
       <td>${index + 1}</td>
       <td>${formatJstDate(row[0])}</td>
       <td style="${closeBgColor}">${formatPrice(filledData[index][4])}</td>
-      <td>${formatPrice(sma1Values[index])}</td>
-      <td>${formatPrice(sma2Values[index])}</td>
       <td style="${sideBgColor}">${SIDE[index]}</td>
       <td>${formatPrice(positions[index])}</td>
       <td>${formatPrice(plValues[index])}</td>
       <td>${formatPrice(totalValues[index])}</td>
+      <td>${formatPrice(sma1Values[index])}</td>
+      <td>${formatPrice(sma2Values[index])}</td>
+      <td>${stdDevValues[index].toFixed(4)}</td>
       <td class="extra">${row[0]}</td>
       <td class="extra">${formatPrice(row[1])}</td>
       <td class="extra">${formatPrice(row[2])}</td>
