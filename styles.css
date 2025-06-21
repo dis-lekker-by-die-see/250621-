@@ -30,6 +30,12 @@ input[type="file"],
 input[type="number"] {
   margin: 10px 5px;
 }
+.controls {
+  margin: 10px 10px;
+}
+body > div:nth-child(9) {
+  margin: 10px 5px;
+}
 .table-container {
   overflow-x: auto;
   overflow-y: auto;
@@ -65,7 +71,4 @@ td:nth-child(2) {
 }
 .hidden {
   display: none;
-}
-.controls {
-  margin-bottom: 10px;
 }
