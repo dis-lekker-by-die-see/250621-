@@ -16,10 +16,8 @@
       onchange="uploadJson()"
     />
     <button onclick="getNewData()" id="getDataBtn" disabled>Update Data</button>
-    <button onclick="saveNewJson()" id="saveJsonBtn" disabled>
-      Download JSON
-    </button>
-    <button onclick="downloadCsv()">Download CSV</button>
+    <button onclick="saveNewJson()" id="saveJsonBtn">Download JSON</button>
+    <button onclick="downloadCsv()">Download Table CSV</button>
     <div id="output"></div>
     <div class="controls">
       <label for="sma1Periods">SMA1 Periods: </label>
@@ -27,14 +25,14 @@
         type="number"
         id="sma1Periods"
         value="4"
-        onchange="updateTable(existingData || updatedJson)"
+        onchange="updateTable(existingData)"
       />
       <label for="sma2Periods">SMA2 Periods: </label>
       <input
         type="number"
         id="sma2Periods"
         value="100"
-        onchange="updateTable(existingData || updatedJson)"
+        onchange="updateTable(existingData)"
       />
     </div>
     <div>
@@ -47,15 +45,15 @@
         />
         Show Extra Columns
       </label>
-      <label
-        ><input
+      <label>
+        <input
           type="checkbox"
           id="toggleLongOnly"
           checked
           onchange="toggleLongOnly()"
         />
-        Long Only</label
-      >
+        Long Only
+      </label>
     </div>
     <div class="table-container">
       <table id="jsonTable">

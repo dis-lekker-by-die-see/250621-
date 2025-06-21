@@ -199,6 +199,11 @@ function calculateStdDev(data, stdDevPeriods) {
 //       SIDE[i] = 0; // No position
 //     }
 
+//     // Step 4: Long Only filter
+//     if (document.getElementById("toggleLongOnly").checked && SIDE[i] === -1) {
+//       SIDE[i] = 0; // No position if short and long-only enabled
+//     }
+
 //     // Validate SIDE
 //     if (![1, -1, 0].includes(SIDE[i])) {
 //       throw new Error("Invalid SIDE value");
@@ -238,19 +243,19 @@ function calculateStdDev(data, stdDevPeriods) {
 //     let closeBgColor = "";
 //     let sideBgColor =
 //       SIDE[index] === 1
-//         ? "background-color: #90EE90;"
+//         ? "background-color: #c4eccc;"
 //         : SIDE[index] === -1
-//         ? "background-color: #FFB6C1;"
-//         : "background-color: #CCCC00;";
+//         ? "background-color: #fcc4cc;"
+//         : "background-color: #fcec9c;";
 //     if (index < filledData.length - 1) {
 //       const nextClose = filledData[index + 1][4];
 //       const currentClose = filledData[index][4];
 //       if (currentClose !== 0 && nextClose !== 0) {
 //         closeBgColor =
 //           currentClose > nextClose
-//             ? "background-color: #90EE90;"
+//             ? "background-color: #c4eccc;"
 //             : currentClose < nextClose
-//             ? "background-color: #FFB6C1;"
+//             ? "background-color: #fcc4cc;"
 //             : "";
 //       }
 //     }
@@ -376,19 +381,19 @@ function updateTable(data) {
     let closeBgColor = "";
     let sideBgColor =
       SIDE[index] === 1
-        ? "background-color: #90EE90;"
+        ? "background-color: #c4eccc;"
         : SIDE[index] === -1
-        ? "background-color: #FFB6C1;"
-        : "background-color: #CCCC00;";
+        ? "background-color: #fcc4cc;"
+        : "background-color: #fcec9c;";
     if (index < filledData.length - 1) {
       const nextClose = filledData[index + 1][4];
       const currentClose = filledData[index][4];
       if (currentClose !== 0 && nextClose !== 0) {
         closeBgColor =
           currentClose > nextClose
-            ? "background-color: #90EE90;"
+            ? "background-color: #c4eccc;"
             : currentClose < nextClose
-            ? "background-color: #FFB6C1;"
+            ? "background-color: #fcc4cc;"
             : "";
       }
     }
@@ -475,12 +480,92 @@ async function uploadJson() {
   }
 }
 
+// async function getNewData() {
+//   log("Get New Data: Starting process");
+//   try {
+//     if (!existingData) {
+//       throw new Error("No JSON file uploaded");
+//     }
+//     let latestTimestamp = null;
+//     if (existingData.length > 0) {
+//       latestTimestamp = Math.max(...existingData.map((entry) => entry[0]));
+//       log(
+//         `Latest Timestamp Found: ${latestTimestamp} (${new Date(
+//           latestTimestamp
+//         ).toISOString()})`
+//       );
+//     } else {
+//       log("No Existing Data: Using most recent 9:00 AM JST");
+//     }
+//     const recent9amMs = getMostRecent9amJst();
+//     const beforeMs =
+//       latestTimestamp && latestTimestamp > recent9amMs
+//         ? latestTimestamp
+//         : recent9amMs;
+//     log(`API Query Before: ${beforeMs} (${new Date(beforeMs).toISOString()})`);
+//     const params = new URLSearchParams({
+//       symbol: "FX_BTC_JPY",
+//       period: "d",
+//       before: beforeMs.toString(),
+//     });
+//     log(`GET    ${apiUrl}?${params.toString()}`);
+//     const response = await fetch(`${apiUrl}?${params}`, {
+//       headers: {
+//         "User-Agent":
+//           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+//         Accept: "application/json, text/plain, */*",
+//         "Accept-Language": "en-US,en;q=0.9",
+//         Referer: "https://lightchart.bitflyer.com/",
+//         Origin: "https://lightchart.bitflyer.com",
+//       },
+//     });
+//     log(
+//       `HTTP ${response.status} ${
+//         response.ok ? "OK" : "Error"
+//       }: Response received`
+//     );
+//     if (!response.ok) {
+//       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+//     }
+//     const data = await response.json();
+//     if (!Array.isArray(data)) {
+//       log("Invalid API Response: Not a list");
+//       return;
+//     }
+//     if (data.length === 0) {
+//       log("No New Data Available: API returned empty list");
+//       updatedJson = existingData;
+//     } else {
+//       const formattedData = data
+//         .filter((entry) => entry.length >= 10)
+//         .map((entry) => entry.slice(0, 10));
+//       log(`Data Retrieved: ${formattedData.length} entries formatted`);
+//       const existingTimestamps = new Set(existingData.map((entry) => entry[0]));
+//       const newData = formattedData.filter(
+//         (entry) => !existingTimestamps.has(entry[0])
+//       );
+//       log(`New Data Filtered: ${newData.length} unique entries to prepend`);
+//       if (newData.length === 0) {
+//         log("No New Data: No entries to prepend");
+//         updatedJson = existingData;
+//       } else {
+//         updatedJson = newData.concat(existingData);
+//         log(`Data Prepended: ${newData.length} entries added`);
+//       }
+//     }
+//     updateTable(updatedJson);
+//     document.getElementById("saveJsonBtn").disabled = false;
+//   } catch (error) {
+//     log(`Error: ${error.message}`);
+//   }
+// }
 async function getNewData() {
   log("Get New Data: Starting process");
   try {
     if (!existingData) {
       throw new Error("No JSON file uploaded");
     }
+
     let latestTimestamp = null;
     if (existingData.length > 0) {
       latestTimestamp = Math.max(...existingData.map((entry) => entry[0]));
@@ -492,18 +577,21 @@ async function getNewData() {
     } else {
       log("No Existing Data: Using most recent 9:00 AM JST");
     }
+
     const recent9amMs = getMostRecent9amJst();
     const beforeMs =
       latestTimestamp && latestTimestamp > recent9amMs
         ? latestTimestamp
         : recent9amMs;
     log(`API Query Before: ${beforeMs} (${new Date(beforeMs).toISOString()})`);
+
     const params = new URLSearchParams({
       symbol: "FX_BTC_JPY",
       period: "d",
       before: beforeMs.toString(),
     });
     log(`GET    ${apiUrl}?${params.toString()}`);
+
     const response = await fetch(`${apiUrl}?${params}`, {
       headers: {
         "User-Agent":
@@ -519,48 +607,67 @@ async function getNewData() {
         response.ok ? "OK" : "Error"
       }: Response received`
     );
+
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
+
     const data = await response.json();
     if (!Array.isArray(data)) {
       log("Invalid API Response: Not a list");
       return;
     }
+
     if (data.length === 0) {
       log("No New Data Available: API returned empty list");
-      updatedJson = existingData;
     } else {
       const formattedData = data
         .filter((entry) => entry.length >= 10)
         .map((entry) => entry.slice(0, 10));
       log(`Data Retrieved: ${formattedData.length} entries formatted`);
+
       const existingTimestamps = new Set(existingData.map((entry) => entry[0]));
       const newData = formattedData.filter(
         (entry) => !existingTimestamps.has(entry[0])
       );
       log(`New Data Filtered: ${newData.length} unique entries to prepend`);
-      if (newData.length === 0) {
-        log("No New Data: No entries to prepend");
-        updatedJson = existingData;
-      } else {
-        updatedJson = newData.concat(existingData);
+
+      if (newData.length > 0) {
+        existingData = newData.concat(existingData);
         log(`Data Prepended: ${newData.length} entries added`);
+      } else {
+        log("No New Data: No entries to prepend");
       }
     }
-    updateTable(updatedJson);
+
+    updateTable(existingData);
     document.getElementById("saveJsonBtn").disabled = false;
   } catch (error) {
     log(`Error: ${error.message}`);
   }
 }
 
+// function saveNewJson() {
+//   if (!updatedJson) {
+//     log("Error: No updated JSON to save");
+//     return;
+//   }
+//   const blob = new Blob([JSON.stringify(updatedJson, null, 2)], {
+//     type: "application/json",
+//   });
+//   const url = URL.createObjectURL(blob);
+//   const a = document.createElement("a");
+//   a.href = url;
+//   a.download = getTimestampedFilename() + ".json";
+//   document.body.appendChild(a);
+//   a.click();
+//   document.body.removeChild(a);
+//   URL.revokeObjectURL(url);
+//   log(`Save New JSON: Prompted to save ${a.download}`);
+// }
 function saveNewJson() {
-  if (!updatedJson) {
-    log("Error: No updated JSON to save");
-    return;
-  }
-  const blob = new Blob([JSON.stringify(updatedJson, null, 2)], {
+  const dataToSave = existingData || [];
+  const blob = new Blob([JSON.stringify(dataToSave, null, 2)], {
     type: "application/json",
   });
   const url = URL.createObjectURL(blob);
@@ -574,18 +681,53 @@ function saveNewJson() {
   log(`Save New JSON: Prompted to save ${a.download}`);
 }
 
+// function downloadCsv() {
+//   const table = document.getElementById("jsonTable");
+//   let csv = [];
+//   const rows = table.querySelectorAll("tr");
+//   rows.forEach((row, rowIndex) => {
+//     const cols = row.querySelectorAll("th, td");
+//     const rowData = [];
+//     cols.forEach((col, colIndex) => {
+//       if (col.classList.contains("extra") && col.style.display) {
+//         return;
+//       }
+//       let cellText = col.textContent.trim();
+//       if (cellText.includes(",") || cellText.includes('"')) {
+//         cellText = `"${cellText.replace(/"/g, '""')}"`;
+//       }
+//       rowData.push(cellText);
+//     });
+//     if (rowData.length > 0) {
+//       csv.push(rowData.join(","));
+//     }
+//   });
+//   const csvContent = csv.join("\n");
+//   const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+//   const url = URL.createObjectURL(blob);
+//   const a = document.createElement("a");
+//   a.href = url;
+//   a.download = getTimestampedFilename() + ".csv";
+//   document.body.appendChild(a);
+//   a.click();
+//   document.body.removeChild(a);
+//   URL.revokeObjectURL(url);
+//   log(`Download CSV: Prompted to save ${a.download}`);
+// }
 function downloadCsv() {
   const table = document.getElementById("jsonTable");
   let csv = [];
   const rows = table.querySelectorAll("tr");
-  rows.forEach((row, rowIndex) => {
+  rows.forEach((row) => {
     const cols = row.querySelectorAll("th, td");
     const rowData = [];
-    cols.forEach((col, colIndex) => {
-      if (col.classList.contains("extra") && col.style.display) {
+    cols.forEach((col) => {
+      // Skip hidden extra columns
+      if (col.classList.contains("extra") && col.style.display === "none") {
         return;
       }
       let cellText = col.textContent.trim();
+      // Escape quotes and wrap in quotes if contains commas or quotes
       if (cellText.includes(",") || cellText.includes('"')) {
         cellText = `"${cellText.replace(/"/g, '""')}"`;
       }
