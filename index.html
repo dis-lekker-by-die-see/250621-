@@ -36,6 +36,8 @@
         value="100"
         onchange="updateTable(existingData || updatedJson)"
       />
+    </div>
+    <div>
       <label
         ><input
           type="checkbox"
@@ -44,6 +46,15 @@
           onchange="toggleColumns()"
         />
         Show Extra Columns</label
+      >
+      <label
+        ><input
+          type="checkbox"
+          id="toggleLongOnly"
+          checked
+          onchange="toggleLongOnly()"
+        />
+        Long Only</label
       >
     </div>
     <div class="table-container">
