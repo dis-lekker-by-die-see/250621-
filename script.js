@@ -147,6 +147,139 @@ function calculateStdDev(data, stdDevPeriods) {
   return stdDev;
 }
 
+// function updateTable(data) {
+//   if (!data) return;
+//   const tbody = document.querySelector("#jsonTable tbody");
+//   tbody.innerHTML = "";
+//   const periods1 =
+//     parseFloat(document.getElementById("sma1Periods").value) || 1;
+//   const periods2 =
+//     parseFloat(document.getElementById("sma2Periods").value) || 1;
+//   const stdDevPeriods = 2;
+//   const stdDevCutOff = 4.1;
+
+//   // Copy data and fill backward null CLOSE prices
+//   const filledData = data.map((row) => [...row]);
+//   let lastClose = 0;
+//   for (let i = filledData.length - 1; i >= 0; i--) {
+//     if (filledData[i][4] === null) {
+//       filledData[i][4] = lastClose;
+//     } else {
+//       lastClose = filledData[i][4];
+//     }
+//   }
+
+//   const sma1Values = calculateSMA1(filledData, periods1);
+//   const sma2Values = calculateSMA2(filledData, periods2);
+//   const stdDevValues = calculateStdDev(filledData, stdDevPeriods);
+//   const SIDE = new Array(data.length).fill(0);
+//   const positions = new Array(data.length).fill(0);
+//   const plValues = new Array(data.length).fill(0);
+//   const totalValues = new Array(data.length).fill(0);
+//   let lastPosition = 0;
+//   let runningTotal = 0;
+
+//   // Calculate SIDE, positions, P/L, and total bottom up
+//   for (let i = filledData.length - 1; i >= 0; i--) {
+//     const row = filledData[i];
+//     // Step 1: SMA1 comparison
+//     if (i === filledData.length - 1 || sma1Values[i] > sma1Values[i + 1]) {
+//       SIDE[i] = 1; // Long
+//     } else {
+//       SIDE[i] = -1; // Short
+//     }
+
+//     // Step 2: STD DEV check
+//     if (stdDevValues[i] > stdDevCutOff) {
+//       SIDE[i] = 0; // No position
+//     }
+
+//     // Step 3: SMA1 vs SMA2 check
+//     if (sma1Values[i] < sma2Values[i]) {
+//       SIDE[i] = 0; // No position
+//     }
+
+//     // Validate SIDE
+//     if (![1, -1, 0].includes(SIDE[i])) {
+//       throw new Error("Invalid SIDE value");
+//     }
+
+//     // Calculate Position
+//     if (i === filledData.length - 1 || SIDE[i] !== SIDE[i + 1]) {
+//       positions[i] = SIDE[i] === 0 ? 0 : row[4]; // Close position (0) or new position
+//     } else {
+//       positions[i] = lastPosition;
+//     }
+//     lastPosition = positions[i];
+
+//     // Calculate P/L
+//     if (i < filledData.length - 1 && positions[i + 1] !== 0) {
+//       if (SIDE[i + 1] === 1) {
+//         // Previous was long
+//         plValues[i] = row[4] - positions[i + 1];
+//       } else if (SIDE[i + 1] === -1) {
+//         // Previous was short
+//         plValues[i] = positions[i + 1] - row[4];
+//       } else if (SIDE[i + 1] === 0) {
+//         // No previous position
+//         plValues[i] = 0;
+//       }
+//       // Add P/L to running total on SIDE change
+//       if (i < filledData.length - 1 && SIDE[i] !== SIDE[i + 1]) {
+//         runningTotal += plValues[i];
+//       }
+//     }
+//     totalValues[i] = runningTotal;
+//   }
+
+//   // Render table rows
+//   data.forEach((row, index) => {
+//     const tr = document.createElement("tr");
+//     let closeBgColor = "";
+//     let sideBgColor =
+//       SIDE[index] === 1
+//         ? "background-color: #90EE90;"
+//         : SIDE[index] === -1
+//         ? "background-color: #FFB6C1;"
+//         : "background-color: #CCCC00;";
+//     if (index < filledData.length - 1) {
+//       const nextClose = filledData[index + 1][4];
+//       const currentClose = filledData[index][4];
+//       if (currentClose !== 0 && nextClose !== 0) {
+//         closeBgColor =
+//           currentClose > nextClose
+//             ? "background-color: #90EE90;"
+//             : currentClose < nextClose
+//             ? "background-color: #FFB6C1;"
+//             : "";
+//       }
+//     }
+//     tr.innerHTML = `
+//       <td>${index + 1}</td>
+//       <td>${formatJstDate(row[0])}</td>
+//       <td style="${closeBgColor}">${formatPrice(filledData[index][4])}</td>
+//       <td style="${sideBgColor}">${SIDE[index]}</td>
+//       <td>${formatPrice(positions[index])}</td>
+//       <td>${formatPrice(plValues[index])}</td>
+//       <td>${formatPrice(totalValues[index])}</td>
+//       <td>${formatPrice(sma1Values[index])}</td>
+//       <td>${formatPrice(sma2Values[index])}</td>
+//       <td>${stdDevValues[index].toFixed(4)}</td>
+//       <td class="extra">${row[0]}</td>
+//       <td class="extra">${formatPrice(row[1])}</td>
+//       <td class="extra">${formatPrice(row[2])}</td>
+//       <td class="extra">${formatPrice(row[3])}</td>
+//       <td class="extra">${formatPrice(row[4])}</td>
+//       <td class="extra">${row[5] ?? "0"}</td>
+//       <td class="extra">${row[6] ?? "0"}</td>
+//       <td class="extra">${row[7] ?? "0"}</td>
+//       <td class="extra">${row[8] ?? "0"}</td>
+//       <td class="extra">${row[9] ?? "0"}</td>
+//     `;
+//     tbody.appendChild(tr);
+//   });
+//   toggleColumns();
+// }
 function updateTable(data) {
   if (!data) return;
   const tbody = document.querySelector("#jsonTable tbody");
@@ -197,6 +330,11 @@ function updateTable(data) {
     // Step 3: SMA1 vs SMA2 check
     if (sma1Values[i] < sma2Values[i]) {
       SIDE[i] = 0; // No position
+    }
+
+    // Step 4: Long Only filter
+    if (document.getElementById("toggleLongOnly").checked && SIDE[i] === -1) {
+      SIDE[i] = 0; // No position if short and long-only enabled
     }
 
     // Validate SIDE
@@ -287,6 +425,9 @@ function toggleColumns() {
   extraColumns.forEach((col) => {
     col.style.display = isChecked ? "" : "none";
   });
+}
+function toggleLongOnly() {
+  updateTable(existingData || updatedJson);
 }
 
 async function loadSavedData() {
