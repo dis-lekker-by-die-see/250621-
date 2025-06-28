@@ -342,13 +342,99 @@ async function uploadJson() {
   }
 }
 
+// async function getNewData() {
+//   log("Get New Data: Starting process");
+//   try {
+//     if (!existingData) {
+//       throw new Error("No JSON file uploaded");
+//     }
+
+//     let latestTimestamp = null;
+//     if (existingData.length > 0) {
+//       latestTimestamp = Math.max(...existingData.map((entry) => entry[0]));
+//       log(
+//         `Latest Timestamp Found: ${latestTimestamp} (${new Date(
+//           latestTimestamp
+//         ).toISOString()})`
+//       );
+//     } else {
+//       log("No Existing Data: Using most recent 9:00 AM JST");
+//     }
+
+//     const recent9amMs = getMostRecent9amJst();
+//     const beforeMs =
+//       latestTimestamp && latestTimestamp > recent9amMs
+//         ? latestTimestamp
+//         : recent9amMs;
+//     log(`API Query Before: ${beforeMs} (${new Date(beforeMs).toISOString()})`);
+
+//     const params = new URLSearchParams({
+//       symbol: "FX_BTC_JPY",
+//       period: "d",
+//       before: beforeMs.toString(),
+//     });
+//     log(`GET    ${apiUrl}?${params.toString()}`);
+
+//     const response = await fetch(`${apiUrl}?${params}`, {
+//       headers: {
+//         "User-Agent":
+//           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+//         Accept: "application/json, text/plain, */*",
+//         "Accept-Language": "en-US,en;q=0.9",
+//         Referer: "https://lightchart.bitflyer.com/",
+//         Origin: "https://lightchart.bitflyer.com",
+//       },
+//     });
+//     log(
+//       `HTTP ${response.status} ${
+//         response.ok ? "OK" : "Error"
+//       }: Response received`
+//     );
+
+//     if (!response.ok) {
+//       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+//     }
+
+//     const data = await response.json();
+//     if (!Array.isArray(data)) {
+//       log("Invalid API Response: Not a list");
+//       return;
+//     }
+
+//     if (data.length === 0) {
+//       log("No New Data Available: API returned empty list");
+//     } else {
+//       const formattedData = data
+//         .filter((entry) => entry.length >= 10)
+//         .map((entry) => entry.slice(0, 10));
+//       log(`Data Retrieved: ${formattedData.length} entries formatted`);
+
+//       const existingTimestamps = new Set(existingData.map((entry) => entry[0]));
+//       const newData = formattedData.filter(
+//         (entry) => !existingTimestamps.has(entry[0])
+//       );
+//       log(`New Data Filtered: ${newData.length} unique entries to prepend`);
+
+//       if (newData.length > 0) {
+//         existingData = newData.concat(existingData);
+//         log(`Data Prepended: ${newData.length} entries added`);
+//       } else {
+//         log("No New Data: No entries to prepend");
+//       }
+//     }
+
+//     updateTable(existingData);
+//     document.getElementById("saveJsonBtn").disabled = false;
+//   } catch (error) {
+//     log(`Error: ${error.message}`);
+//   }
+// }
 async function getNewData() {
   log("Get New Data: Starting process");
   try {
     if (!existingData) {
       throw new Error("No JSON file uploaded");
     }
-
     let latestTimestamp = null;
     if (existingData.length > 0) {
       latestTimestamp = Math.max(...existingData.map((entry) => entry[0]));
@@ -360,7 +446,6 @@ async function getNewData() {
     } else {
       log("No Existing Data: Using most recent 9:00 AM JST");
     }
-
     const recent9amMs = getMostRecent9amJst();
     const beforeMs =
       latestTimestamp && latestTimestamp > recent9amMs
@@ -368,13 +453,13 @@ async function getNewData() {
         : recent9amMs;
     log(`API Query Before: ${beforeMs} (${new Date(beforeMs).toISOString()})`);
 
+    // Fetch 1-day data
     const params = new URLSearchParams({
       symbol: "FX_BTC_JPY",
       period: "d",
       before: beforeMs.toString(),
     });
-    log(`GET    ${apiUrl}?${params.toString()}`);
-
+    log(`GET 1-Day Data: ${apiUrl}?${params.toString()}`);
     const response = await fetch(`${apiUrl}?${params}`, {
       headers: {
         "User-Agent":
@@ -388,39 +473,116 @@ async function getNewData() {
     log(
       `HTTP ${response.status} ${
         response.ok ? "OK" : "Error"
-      }: Response received`
+      }: 1-Day Response received`
     );
-
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
-
     const data = await response.json();
     if (!Array.isArray(data)) {
-      log("Invalid API Response: Not a list");
+      log("Invalid 1-Day API Response: Not a list");
       return;
     }
 
-    if (data.length === 0) {
-      log("No New Data Available: API returned empty list");
-    } else {
+    let newData = [];
+    if (data.length > 0) {
       const formattedData = data
         .filter((entry) => entry.length >= 10)
         .map((entry) => entry.slice(0, 10));
-      log(`Data Retrieved: ${formattedData.length} entries formatted`);
-
+      log(`1-Day Data Retrieved: ${formattedData.length} entries formatted`);
       const existingTimestamps = new Set(existingData.map((entry) => entry[0]));
-      const newData = formattedData.filter(
+      newData = formattedData.filter(
         (entry) => !existingTimestamps.has(entry[0])
       );
-      log(`New Data Filtered: ${newData.length} unique entries to prepend`);
-
+      log(
+        `1-Day New Data Filtered: ${newData.length} unique entries to prepend`
+      );
       if (newData.length > 0) {
         existingData = newData.concat(existingData);
-        log(`Data Prepended: ${newData.length} entries added`);
+        log(`1-Day Data Prepended: ${newData.length} entries added`);
       } else {
-        log("No New Data: No entries to prepend");
+        log("No New 1-Day Data: No entries to prepend");
       }
+    } else {
+      log("No New 1-Day Data Available: API returned empty list");
+    }
+
+    // Check if current time is between 09:00 and 09:30 JST
+    const now = new Date();
+    const jstOffset = 9 * 60 * 60 * 1000; // JST is UTC+9
+    const jstTime = new Date(
+      now.getTime() + jstOffset + now.getTimezoneOffset() * 60 * 1000
+    );
+    const jstHours = jstTime.getHours();
+    const jstMinutes = jstTime.getMinutes();
+    const isBetween9and930 =
+      jstHours === 9 && jstMinutes >= 0 && jstMinutes <= 30;
+    // log(
+    //   `Current JST Time: ${jstTime.toISOString()}, Between 09:00-09:30: ${
+    //     isBetween9and930 ? "Yes" : "No"
+    //   }`
+    // );
+    log(
+      `Current JST Time: ${formatJstDate(
+        jstTime.getTime()
+      )} JST, Between 09:00-09:30: ${isBetween9and930 ? "Yes" : "No"}`
+    );
+
+    // Fetch 1-minute data only if new 1-day data was added and time is 09:00-09:30 JST
+    if (newData.length > 0 && isBetween9and930) {
+      const minuteBeforeMs = beforeMs + 86400000;
+      const minuteParams = new URLSearchParams({
+        symbol: "FX_BTC_JPY",
+        period: "m",
+        before: minuteBeforeMs.toString(),
+      });
+      log(`GET 1-Minute Data: ${apiUrl}?${minuteParams.toString()}`);
+      const minuteResponse = await fetch(`${apiUrl}?${minuteParams}`, {
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+          Accept: "application/json, text/plain, */*",
+          "Accept-Language": "en-US,en;q=0.9",
+          Referer: "https://lightchart.bitflyer.com/",
+          Origin: "https://lightchart.bitflyer.com",
+        },
+      });
+      log(
+        `HTTP ${minuteResponse.status} ${
+          minuteResponse.ok ? "OK" : "Error"
+        }: 1-Minute Response received`
+      );
+      if (!minuteResponse.ok) {
+        log(
+          `1-Minute Fetch Error: HTTP ${minuteResponse.status}: ${minuteResponse.statusText}`
+        );
+      } else {
+        const minuteData = await minuteResponse.json();
+        if (!Array.isArray(minuteData)) {
+          log("Invalid 1-Minute API Response: Not a list");
+        } else {
+          log(`1-Minute Data Retrieved: ${minuteData.length} entries`);
+          // Find first non-null CLOSE from timestamp[1] to timestamp[30]
+          let newClose = null;
+          for (let i = 1; i <= 30 && i < minuteData.length; i++) {
+            if (minuteData[i] && minuteData[i][4] !== null) {
+              newClose = minuteData[i][4];
+              log(`Found 1-Minute CLOSE: ${newClose} at timestamp[${i}]`);
+              break;
+            }
+          }
+          if (newClose !== null) {
+            existingData[0][4] = newClose;
+            log(`Updated Latest 1-Day CLOSE to ${newClose}`);
+          } else {
+            log(
+              "No valid 1-minute CLOSE found in timestamp[1] to timestamp[30]"
+            );
+          }
+        }
+      }
+    } else if (!isBetween9and930) {
+      log("Skipping 1-minute fetch: Outside 09:00-09:30 JST");
     }
 
     updateTable(existingData);
