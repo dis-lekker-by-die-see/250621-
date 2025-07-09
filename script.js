@@ -54,28 +54,82 @@ function formatPrice(value) {
   return Math.round(value).toLocaleString("en-US", { useGrouping: true });
 }
 
+// // AVERAGE SMA
+// function calculateSMA1(data, periods1) {
+//   if (!data || data.length === 0) return [];
+//   const sma1 = new Array(data.length).fill(null);
+//   if (data.length > 0) {
+//     for (let i = data.length - 1; i >= 0; i--) {
+//       let sum = 0;
+//       let count = 0;
+//       for (
+//         let j = i;
+//         j < Math.min(data.length, i + Math.floor(periods1));
+//         j++
+//       ) {
+//         const close = data[j][4];
+//         if (close !== null) {
+//           sum += close;
+//           count++;
+//         }
+//       }
+//       if (count > 0) {
+//         sma1[i] = Math.round(sum / count);
+//       } else if (i < data.length - 1) {
+//         sma1[i] = sma1[i + 1];
+//       }
+//     }
+//   }
+//   return sma1;
+// }
+
+// function calculateSMA2(data, periods2) {
+//   if (!data || data.length === 0) return [];
+//   const sma2 = new Array(data.length).fill(null);
+//   if (data.length > 0) {
+//     for (let i = data.length - 1; i >= 0; i--) {
+//       let sum = 0;
+//       let count = 0;
+//       for (
+//         let j = i;
+//         j < Math.min(data.length, i + Math.floor(periods2));
+//         j++
+//       ) {
+//         const close = data[j][4];
+//         if (close !== null) {
+//           sum += close;
+//           count++;
+//         }
+//       }
+//       if (count > 0) {
+//         sma2[i] = Math.round(sum / count);
+//       } else if (i < data.length - 1) {
+//         sma2[i] = sma2[i + 1];
+//       }
+//     }
+//   }
+//   return sma2;
+// }
+//////////////////////////////////////////////////
+
+// EMA
 function calculateSMA1(data, periods1) {
   if (!data || data.length === 0) return [];
   const sma1 = new Array(data.length).fill(null);
   if (data.length > 0) {
-    for (let i = data.length - 1; i >= 0; i--) {
-      let sum = 0;
-      let count = 0;
-      for (
-        let j = i;
-        j < Math.min(data.length, i + Math.floor(periods1));
-        j++
-      ) {
-        const close = data[j][4];
-        if (close !== null) {
-          sum += close;
-          count++;
-        }
-      }
-      if (count > 0) {
-        sma1[i] = Math.round(sum / count);
-      } else if (i < data.length - 1) {
-        sma1[i] = sma1[i + 1];
+    sma1[data.length - 1] =
+      data[data.length - 1][4] !== null
+        ? Math.round(data[data.length - 1][4])
+        : null; // Initialize with oldest closing price
+    for (let i = data.length - 2; i >= 0; i--) {
+      const currentClose = data[i][4];
+      const prevSMA = sma1[i + 1];
+      if (currentClose !== null && prevSMA !== null) {
+        sma1[i] = Math.round(
+          (prevSMA * (periods1 - 1) + currentClose) / periods1
+        );
+      } else {
+        sma1[i] = prevSMA; // Use previous SMA if current close is null
       }
     }
   }
@@ -86,29 +140,26 @@ function calculateSMA2(data, periods2) {
   if (!data || data.length === 0) return [];
   const sma2 = new Array(data.length).fill(null);
   if (data.length > 0) {
-    for (let i = data.length - 1; i >= 0; i--) {
-      let sum = 0;
-      let count = 0;
-      for (
-        let j = i;
-        j < Math.min(data.length, i + Math.floor(periods2));
-        j++
-      ) {
-        const close = data[j][4];
-        if (close !== null) {
-          sum += close;
-          count++;
-        }
-      }
-      if (count > 0) {
-        sma2[i] = Math.round(sum / count);
-      } else if (i < data.length - 1) {
-        sma2[i] = sma2[i + 1];
+    sma2[data.length - 1] =
+      data[data.length - 1][4] !== null
+        ? Math.round(data[data.length - 1][4])
+        : null; // Initialize with oldest closing price
+    for (let i = data.length - 2; i >= 0; i--) {
+      const currentClose = data[i][4];
+      const prevSMA = sma2[i + 1];
+      if (currentClose !== null && prevSMA !== null) {
+        sma2[i] = Math.round(
+          (prevSMA * (periods2 - 1) + currentClose) / periods2
+        );
+      } else {
+        sma2[i] = prevSMA; // Use previous SMA if current close is null
       }
     }
   }
   return sma2;
 }
+
+//////////////////////////////////////////////////////////////
 
 function calculateStdDev(data, stdDevPeriods) {
   if (!data || data.length === 0) return [];
