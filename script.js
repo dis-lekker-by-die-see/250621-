@@ -207,7 +207,7 @@ function updateTable(data) {
   const periods2 =
     parseFloat(document.getElementById("sma2Periods").value) || 1;
   const stdDevPeriods = 2;
-  const stdDevCutOff = 4.1;
+  const stdDevCutOff = 4.2;
 
   // Copy data and fill backward null CLOSE prices
   const filledData = data.map((row) => [...row]);
