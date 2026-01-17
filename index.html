@@ -9,22 +9,37 @@
   <body>
     <!-- <h1>1 Day OHLC Data</h1> -->
     <div class="pair-selector">
-      <label for="pairSelect">Trading Pair: </label>
-      <select id="pairSelect" onchange="changePair()">
-        <option value="FX_BTC_JPY" selected>FX_BTC_JPY</option>
-        <option value="BTC_JPY">BTC_JPY</option>
-      </select>
+      <label class="radio-label">
+        <input
+          type="radio"
+          name="pairSelect"
+          value="FX_BTC_JPY"
+          checked
+          onchange="changePair()"
+        />
+        FX_BTC_JPY
+      </label>
+      <label class="radio-label">
+        <input
+          type="radio"
+          name="pairSelect"
+          value="BTC_JPY"
+          onchange="changePair()"
+        />
+        BTC_JPY
+      </label>
     </div>
-    <button onclick="loadSavedData()">Load Saved Data</button>
+    <div style="clear: both"></div>
+    <button onclick="getNewData()" id="getDataBtn" disabled>Update Data</button>
+    <button onclick="saveNewJson()" id="saveJsonBtn">Download JSON</button>
+    <button onclick="downloadCsv()">Download Table CSV</button>
+    <br />
     <input
       type="file"
       id="jsonFileInput"
       accept=".json"
       onchange="uploadJson()"
     />
-    <button onclick="getNewData()" id="getDataBtn" disabled>Update Data</button>
-    <button onclick="saveNewJson()" id="saveJsonBtn">Download JSON</button>
-    <button onclick="downloadCsv()">Download Table CSV</button>
     <div id="output"></div>
     <div class="controls">
       <label for="sma1Periods">SMA1 Periods: </label>
@@ -62,6 +77,7 @@
         Long Only
       </label>
     </div>
+    <h2 id="currentPairLabel" class="pair-label">FX_BTC_JPY</h2>
     <div class="table-container">
       <table id="jsonTable">
         <thead>
