@@ -1,4 +1,5 @@
 const apiUrl = "https://lightchart.bitflyer.com/api/ohlc";
+let currentPair = "FX_BTC_JPY";
 let existingData = null;
 let updatedJson = null;
 
@@ -24,7 +25,7 @@ function getTimestampedFilename() {
   const now = new Date();
   const jstOffset = 9 * 60 * 60 * 1000; // JST is UTC+9 in milliseconds
   const jstTime = new Date(
-    now.getTime() + jstOffset + now.getTimezoneOffset() * 60 * 1000
+    now.getTime() + jstOffset + now.getTimezoneOffset() * 60 * 1000,
   );
   const year = jstTime.getFullYear().toString().slice(-2); // YY
   const month = (jstTime.getMonth() + 1).toString().padStart(2, "0"); // MM
@@ -32,14 +33,14 @@ function getTimestampedFilename() {
   const hours = jstTime.getHours().toString().padStart(2, "0"); // HH (24-hour)
   const minutes = jstTime.getMinutes().toString().padStart(2, "0"); // MM
   const seconds = jstTime.getSeconds().toString().padStart(2, "0"); // SS
-  return `FX_BTC_JPY-OHLC-d-all_${year}${month}${day}-${hours}${minutes}${seconds}`;
+  return `${currentPair}-OHLC-d-all_${year}${month}${day}-${hours}${minutes}${seconds}`;
 }
 
 function formatJstDate(timestampMs) {
   const date = new Date(timestampMs);
   const jstOffset = 9 * 60 * 60 * 1000; // JST is UTC+9
   const jstTime = new Date(
-    date.getTime() + jstOffset + date.getTimezoneOffset() * 60 * 1000
+    date.getTime() + jstOffset + date.getTimezoneOffset() * 60 * 1000,
   );
   const year = jstTime.getFullYear();
   const month = (jstTime.getMonth() + 1).toString().padStart(2, "0");
@@ -126,7 +127,7 @@ function calculateSMA1(data, periods1) {
       const prevSMA = sma1[i + 1];
       if (currentClose !== null && prevSMA !== null) {
         sma1[i] = Math.round(
-          (prevSMA * (periods1 - 1) + currentClose) / periods1
+          (prevSMA * (periods1 - 1) + currentClose) / periods1,
         );
       } else {
         sma1[i] = prevSMA; // Use previous SMA if current close is null
@@ -149,7 +150,7 @@ function calculateSMA2(data, periods2) {
       const prevSMA = sma2[i + 1];
       if (currentClose !== null && prevSMA !== null) {
         sma2[i] = Math.round(
-          (prevSMA * (periods2 - 1) + currentClose) / periods2
+          (prevSMA * (periods2 - 1) + currentClose) / periods2,
         );
       } else {
         sma2[i] = prevSMA; // Use previous SMA if current close is null
@@ -187,7 +188,7 @@ function calculateStdDev(data, stdDevPeriods) {
       // Calculate population standard deviation (STDEV.P)
       const varianceSum = values.reduce(
         (acc, val) => acc + Math.pow(val - mean, 2),
-        0
+        0,
       );
       const stdDevP = Math.sqrt(varianceSum / count);
       // Scale as (STDEV.P / CLOSE[i]) * 100
@@ -296,8 +297,8 @@ function updateTable(data) {
       SIDE[index] === 1
         ? "background-color: #c4eccc;"
         : SIDE[index] === -1
-        ? "background-color: #fcc4cc;"
-        : "background-color: #fcec9c;";
+          ? "background-color: #fcc4cc;"
+          : "background-color: #fcec9c;";
     if (index < filledData.length - 1) {
       const nextClose = filledData[index + 1][4];
       const currentClose = filledData[index][4];
@@ -306,8 +307,8 @@ function updateTable(data) {
           currentClose > nextClose
             ? "background-color: #c4eccc;"
             : currentClose < nextClose
-            ? "background-color: #fcc4cc;"
-            : "";
+              ? "background-color: #fcc4cc;"
+              : "";
       }
     }
     tr.innerHTML = `
@@ -348,12 +349,32 @@ function toggleLongOnly() {
   updateTable(existingData || updatedJson);
 }
 
+function changePair() {
+  const newPair = document.getElementById("pairSelect").value;
+  if (newPair !== currentPair) {
+    currentPair = newPair;
+    log(`Trading Pair Changed: Switched to ${currentPair}`);
+    // Reset state
+    existingData = null;
+    updatedJson = null;
+    document.getElementById("jsonFileInput").disabled = false;
+    document.getElementById("getDataBtn").disabled = true;
+    // Clear output and table
+    document.getElementById("output").textContent = "";
+    document.querySelector("#jsonTable tbody").innerHTML = "";
+    // Auto-load the new pair's data
+    loadSavedData();
+  }
+}
+
 async function loadSavedData() {
-  log("Load Saved Data: Loading FX_BTC_JPY-OHLC-d-all.json");
+  log(`Load Saved Data: Loading ${currentPair}-OHLC-d-all.json`);
   existingData = null;
   try {
     const cacheBuster = `?_=${new Date().getTime()}`;
-    const response = await fetch(`FX_BTC_JPY-OHLC-d-all.json${cacheBuster}`);
+    const response = await fetch(
+      `${currentPair}-OHLC-d-all.json${cacheBuster}`,
+    );
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
@@ -491,8 +512,8 @@ async function getNewData() {
       latestTimestamp = Math.max(...existingData.map((entry) => entry[0]));
       log(
         `Latest Timestamp Found: ${latestTimestamp} (${new Date(
-          latestTimestamp
-        ).toISOString()})`
+          latestTimestamp,
+        ).toISOString()})`,
       );
     } else {
       log("No Existing Data: Using most recent 9:00 AM JST");
@@ -506,7 +527,7 @@ async function getNewData() {
 
     // Fetch 1-day data
     const params = new URLSearchParams({
-      symbol: "FX_BTC_JPY",
+      symbol: currentPair,
       period: "d",
       before: beforeMs.toString(),
     });
@@ -524,7 +545,7 @@ async function getNewData() {
     log(
       `HTTP ${response.status} ${
         response.ok ? "OK" : "Error"
-      }: 1-Day Response received`
+      }: 1-Day Response received`,
     );
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -543,10 +564,10 @@ async function getNewData() {
       log(`1-Day Data Retrieved: ${formattedData.length} entries formatted`);
       const existingTimestamps = new Set(existingData.map((entry) => entry[0]));
       newData = formattedData.filter(
-        (entry) => !existingTimestamps.has(entry[0])
+        (entry) => !existingTimestamps.has(entry[0]),
       );
       log(
-        `1-Day New Data Filtered: ${newData.length} unique entries to prepend`
+        `1-Day New Data Filtered: ${newData.length} unique entries to prepend`,
       );
       if (newData.length > 0) {
         existingData = newData.concat(existingData);
@@ -562,7 +583,7 @@ async function getNewData() {
     const now = new Date();
     const jstOffset = 9 * 60 * 60 * 1000; // JST is UTC+9
     const jstTime = new Date(
-      now.getTime() + jstOffset + now.getTimezoneOffset() * 60 * 1000
+      now.getTime() + jstOffset + now.getTimezoneOffset() * 60 * 1000,
     );
     const jstHours = jstTime.getHours();
     const jstMinutes = jstTime.getMinutes();
@@ -575,15 +596,15 @@ async function getNewData() {
     // );
     log(
       `Current JST Time: ${formatJstDate(
-        jstTime.getTime()
-      )} JST, Between 09:00-09:30: ${isBetween9and930 ? "Yes" : "No"}`
+        jstTime.getTime(),
+      )} JST, Between 09:00-09:30: ${isBetween9and930 ? "Yes" : "No"}`,
     );
 
     // Fetch 1-minute data only if new 1-day data was added and time is 09:00-09:30 JST
     if (newData.length > 0 && isBetween9and930) {
       const minuteBeforeMs = beforeMs + 86400000;
       const minuteParams = new URLSearchParams({
-        symbol: "FX_BTC_JPY",
+        symbol: currentPair,
         period: "m",
         before: minuteBeforeMs.toString(),
       });
@@ -601,11 +622,11 @@ async function getNewData() {
       log(
         `HTTP ${minuteResponse.status} ${
           minuteResponse.ok ? "OK" : "Error"
-        }: 1-Minute Response received`
+        }: 1-Minute Response received`,
       );
       if (!minuteResponse.ok) {
         log(
-          `1-Minute Fetch Error: HTTP ${minuteResponse.status}: ${minuteResponse.statusText}`
+          `1-Minute Fetch Error: HTTP ${minuteResponse.status}: ${minuteResponse.statusText}`,
         );
       } else {
         const minuteData = await minuteResponse.json();
@@ -627,7 +648,7 @@ async function getNewData() {
             log(`Updated Latest 1-Day CLOSE to ${newClose}`);
           } else {
             log(
-              "No valid 1-minute CLOSE found in timestamp[1] to timestamp[30]"
+              "No valid 1-minute CLOSE found in timestamp[1] to timestamp[30]",
             );
           }
         }

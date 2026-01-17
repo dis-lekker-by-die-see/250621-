@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -8,6 +8,13 @@
   </head>
   <body>
     <!-- <h1>1 Day OHLC Data</h1> -->
+    <div class="pair-selector">
+      <label for="pairSelect">Trading Pair: </label>
+      <select id="pairSelect" onchange="changePair()">
+        <option value="FX_BTC_JPY" selected>FX_BTC_JPY</option>
+        <option value="BTC_JPY">BTC_JPY</option>
+      </select>
+    </div>
     <button onclick="loadSavedData()">Load Saved Data</button>
     <input
       type="file"
