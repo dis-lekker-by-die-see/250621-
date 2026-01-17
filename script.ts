@@ -22,6 +22,10 @@ interface PairState {
 const apiUrl: string = "https://lightchart.bitflyer.com/api/ohlc";
 let currentPair: TradingPair = "FX_BTC_JPY";
 
+// Standard Deviation Configuration
+const stdDevPeriods = 3;
+const stdDevCutOff = 4.1;
+
 // Per-pair state storage
 const pairStates: Record<TradingPair, PairState> = {
   FX_BTC_JPY: { existingData: null, updatedJson: null, logMessages: [] },
@@ -191,8 +195,6 @@ function updateTable(data: OHLCEntry[]): void {
   ) as HTMLInputElement;
   const periods1 = parseFloat(periods1Input?.value || "1") || 1;
   const periods2 = parseFloat(periods2Input?.value || "1") || 1;
-  const stdDevPeriods = 2;
-  const stdDevCutOff = 4.2;
 
   // Copy data and fill backward null CLOSE prices
   const filledData: OHLCEntry[] = data.map((row) => [...row] as OHLCEntry);
@@ -695,5 +697,11 @@ function downloadCsv(): void {
 
 // Auto-load default pair on page load
 window.addEventListener("DOMContentLoaded", () => {
+  // Ensure pair label matches the default
+  const pairLabel = document.getElementById("currentPairLabel");
+  if (pairLabel) {
+    pairLabel.textContent = currentPair;
+  }
+
   loadSavedData();
 });

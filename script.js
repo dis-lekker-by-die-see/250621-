@@ -1,6 +1,9 @@
 "use strict";
 const apiUrl = "https://lightchart.bitflyer.com/api/ohlc";
 let currentPair = "FX_BTC_JPY";
+// Standard Deviation Configuration
+const stdDevPeriods = 2;
+const stdDevCutOff = 4.2;
 // Per-pair state storage
 const pairStates = {
     FX_BTC_JPY: { existingData: null, updatedJson: null, logMessages: [] },
@@ -147,8 +150,6 @@ function updateTable(data) {
     const periods2Input = document.getElementById("sma2Periods");
     const periods1 = parseFloat(periods1Input?.value || "1") || 1;
     const periods2 = parseFloat(periods2Input?.value || "1") || 1;
-    const stdDevPeriods = 2;
-    const stdDevCutOff = 4.2;
     // Copy data and fill backward null CLOSE prices
     const filledData = data.map((row) => [...row]);
     let lastClose = 0;
@@ -581,5 +582,10 @@ function downloadCsv() {
 }
 // Auto-load default pair on page load
 window.addEventListener("DOMContentLoaded", () => {
+    // Ensure pair label matches the default
+    const pairLabel = document.getElementById("currentPairLabel");
+    if (pairLabel) {
+        pairLabel.textContent = currentPair;
+    }
     loadSavedData();
 });
