@@ -2,8 +2,8 @@
 const apiUrl = "https://lightchart.bitflyer.com/api/ohlc";
 let currentPair = "FX_BTC_JPY";
 // Standard Deviation Configuration
-const stdDevPeriods = 2;
-const stdDevCutOff = 4.2;
+const stdDevPeriods = 3;
+const stdDevCutOff = 4.1;
 // Per-pair state storage
 const pairStates = {
     FX_BTC_JPY: { existingData: null, updatedJson: null, logMessages: [] },
@@ -148,8 +148,12 @@ function updateTable(data) {
     tbody.innerHTML = "";
     const periods1Input = document.getElementById("sma1Periods");
     const periods2Input = document.getElementById("sma2Periods");
+    const stdDevPeriodsInput = document.getElementById("stdDevPeriods");
+    const stdDevCutOffInput = document.getElementById("stdDevCutOff");
     const periods1 = parseFloat(periods1Input?.value || "1") || 1;
     const periods2 = parseFloat(periods2Input?.value || "1") || 1;
+    const stdDevPeriodsValue = parseFloat(stdDevPeriodsInput?.value || "3") || 3;
+    const stdDevCutOffValue = parseFloat(stdDevCutOffInput?.value || "4.1") || 4.1;
     // Copy data and fill backward null CLOSE prices
     const filledData = data.map((row) => [...row]);
     let lastClose = 0;
@@ -163,7 +167,7 @@ function updateTable(data) {
     }
     const sma1Values = calculateSMA1(filledData, periods1);
     const sma2Values = calculateSMA2(filledData, periods2);
-    const stdDevValues = calculateStdDev(filledData, stdDevPeriods);
+    const stdDevValues = calculateStdDev(filledData, stdDevPeriodsValue);
     const SIDE = new Array(data.length).fill(0);
     const positions = new Array(data.length).fill(0);
     const plValues = new Array(data.length).fill(0);
@@ -182,7 +186,7 @@ function updateTable(data) {
             SIDE[i] = -1; // Short
         }
         // Step 2: STD DEV check
-        if (stdDevValues[i] > stdDevCutOff) {
+        if (stdDevValues[i] > stdDevCutOffValue) {
             SIDE[i] = 0; // No position
         }
         // Step 3: SMA1 vs SMA2 check

@@ -193,8 +193,17 @@ function updateTable(data: OHLCEntry[]): void {
   const periods2Input = document.getElementById(
     "sma2Periods",
   ) as HTMLInputElement;
+  const stdDevPeriodsInput = document.getElementById(
+    "stdDevPeriods",
+  ) as HTMLInputElement;
+  const stdDevCutOffInput = document.getElementById(
+    "stdDevCutOff",
+  ) as HTMLInputElement;
   const periods1 = parseFloat(periods1Input?.value || "1") || 1;
   const periods2 = parseFloat(periods2Input?.value || "1") || 1;
+  const stdDevPeriodsValue = parseFloat(stdDevPeriodsInput?.value || "3") || 3;
+  const stdDevCutOffValue =
+    parseFloat(stdDevCutOffInput?.value || "4.1") || 4.1;
 
   // Copy data and fill backward null CLOSE prices
   const filledData: OHLCEntry[] = data.map((row) => [...row] as OHLCEntry);
@@ -209,7 +218,7 @@ function updateTable(data: OHLCEntry[]): void {
 
   const sma1Values = calculateSMA1(filledData, periods1);
   const sma2Values = calculateSMA2(filledData, periods2);
-  const stdDevValues = calculateStdDev(filledData, stdDevPeriods);
+  const stdDevValues = calculateStdDev(filledData, stdDevPeriodsValue);
   const SIDE: number[] = new Array(data.length).fill(0);
   const positions: number[] = new Array(data.length).fill(0);
   const plValues: number[] = new Array(data.length).fill(0);
@@ -231,7 +240,7 @@ function updateTable(data: OHLCEntry[]): void {
     }
 
     // Step 2: STD DEV check
-    if (stdDevValues[i] > stdDevCutOff) {
+    if (stdDevValues[i] > stdDevCutOffValue) {
       SIDE[i] = 0; // No position
     }
 

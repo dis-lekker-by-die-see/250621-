@@ -42,18 +42,34 @@
     />
     <div id="output"></div>
     <div class="controls">
-      <label for="sma1Periods">SMA1 Periods: </label>
+      <label for="sma1Periods">SMA1</label>
       <input
         type="number"
         id="sma1Periods"
         value="2"
         onchange="updateTable(existingData)"
       />
-      <label for="sma2Periods">SMA2 Periods: </label>
+      <label for="sma2Periods">SMA2</label>
       <input
         type="number"
         id="sma2Periods"
         value="11"
+        onchange="updateTable(existingData)"
+      />
+      <br />
+      <label for="stdDevPeriods">StdDev</label>
+      <input
+        type="number"
+        id="stdDevPeriods"
+        value="3"
+        onchange="updateTable(existingData)"
+      />
+      <label for="stdDevCutOff">CutOff</label>
+      <input
+        type="number"
+        id="stdDevCutOff"
+        value="4.1"
+        step="0.1"
         onchange="updateTable(existingData)"
       />
     </div>
@@ -62,10 +78,10 @@
         <input
           type="checkbox"
           id="toggleColumns"
-          checked
+          unchecked
           onchange="toggleColumns()"
         />
-        Show Extra Columns
+        OHLC Columns
       </label>
       <label>
         <input
