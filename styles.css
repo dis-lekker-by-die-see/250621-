@@ -61,10 +61,14 @@ button:disabled {
 }
 input[type="file"],
 input[type="number"] {
-  margin: 10px;
+  margin: 5px;
 }
 .controls {
   margin: 10px;
+}
+
+.controls input[type="number"] {
+  width: 60px;
 }
 body > div:nth-child(8) {
   margin: 10px;
