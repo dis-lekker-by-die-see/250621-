@@ -1,9 +1,6 @@
 "use strict";
 const apiUrl = "https://lightchart.bitflyer.com/api/ohlc";
 let currentPair = "FX_BTC_JPY";
-// Standard Deviation Configuration
-const stdDevPeriods = 3;
-const stdDevCutOff = 4.1;
 // Per-pair state storage
 const pairStates = {
     FX_BTC_JPY: { existingData: null, updatedJson: null, logMessages: [] },

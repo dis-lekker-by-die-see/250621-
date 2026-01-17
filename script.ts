@@ -22,10 +22,6 @@ interface PairState {
 const apiUrl: string = "https://lightchart.bitflyer.com/api/ohlc";
 let currentPair: TradingPair = "FX_BTC_JPY";
 
-// Standard Deviation Configuration
-const stdDevPeriods = 3;
-const stdDevCutOff = 4.1;
-
 // Per-pair state storage
 const pairStates: Record<TradingPair, PairState> = {
   FX_BTC_JPY: { existingData: null, updatedJson: null, logMessages: [] },
