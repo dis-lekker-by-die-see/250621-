@@ -145,9 +145,12 @@ async function switchStrategy(strategyName: string): Promise<void> {
 
     // Initialize params from strategy defaults for all pairs
     APP_CONFIG.availablePairs.forEach((pair) => {
-      pairStates[pair.value].params = {
-        ...strategyModule.DEFAULT_PARAMS[pair.value],
-      };
+      // Only set params if strategy supports this pair
+      if (strategyModule.DEFAULT_PARAMS[pair.value]) {
+        pairStates[pair.value].params = {
+          ...strategyModule.DEFAULT_PARAMS[pair.value],
+        };
+      }
     });
 
     // Render strategy UI
@@ -298,6 +301,7 @@ function updateTable(data: OHLCEntry[]): void {
       result,
       formatJstDate,
       formatPrice,
+      currentPair, // Pass current pair to strategy
     );
 
     // Call strategy's post-render function if it exists
@@ -337,8 +341,29 @@ function changePair(): void {
       pairLabel.textContent = currentPair;
     }
 
+    // Re-render strategy controls for new pair
+    const strategyControlsContainer =
+      document.getElementById("strategyControls");
+    if (strategyControlsContainer && strategyModule) {
+      strategyControlsContainer.innerHTML = "";
+      strategyControlsContainer.innerHTML =
+        strategyModule.renderStrategyControls(currentPair);
+    }
+
     // Update input boxes with new pair's params
     updateInputsFromParams();
+
+    // Re-attach event listeners
+    attachStrategyEventListeners();
+
+    // Setup strategy-specific event listeners if available
+    if (strategyModule && strategyModule.setupEventListeners) {
+      strategyModule.setupEventListeners(
+        updateTable,
+        () => pairStates[currentPair].existingData,
+        saveParamsFromInputs,
+      );
+    }
 
     // Restore new pair's state
     existingData = pairStates[currentPair].existingData;

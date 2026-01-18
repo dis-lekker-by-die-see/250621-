@@ -43,8 +43,8 @@ export const DEFAULT_PARAMS: Record<TradingPair, TrendFollowParams> = {
   BTC_JPY: {
     sma1Periods: 2,
     sma2Periods: 11,
-    stdDevPeriods: 3,
-    stdDevCutOff: 4.1,
+    stdDevPeriods: 2,
+    stdDevCutOff: 2.8,
     longOnly: true,
   },
 };
@@ -453,12 +453,21 @@ export function saveParamsFromInputs(): TrendFollowParams {
     sma2 = sma1;
   }
 
+  // If checkbox doesn't exist (hidden for BTC_JPY), default to true for BTC_JPY
+  let longOnly = false;
+  if (longOnlyCheckbox) {
+    longOnly = longOnlyCheckbox.checked;
+  } else {
+    // Checkbox is hidden, means it's BTC_JPY which is always long-only
+    longOnly = true;
+  }
+
   const params = {
     sma1Periods: sma1,
     sma2Periods: sma2,
     stdDevPeriods: parseInt(stdDevPeriodsInput?.value) || 3,
     stdDevCutOff: parseFloat(stdDevCutOffInput?.value) || 4.1,
-    longOnly: longOnlyCheckbox?.checked ?? false,
+    longOnly: longOnly,
   };
 
   console.log("TrendFollow saveParamsFromInputs:", params);

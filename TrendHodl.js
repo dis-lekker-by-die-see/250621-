@@ -3,16 +3,9 @@
 // Minimum allowed start dates for each pair
 const MIN_START_DATES = {
     BTC_JPY: "2015-06-24",
-    FX_BTC_JPY: "2015-11-18",
 };
 // Default parameters for each trading pair
 export const DEFAULT_PARAMS = {
-    FX_BTC_JPY: {
-        sma1Periods: 2,
-        sma2Periods: 11,
-        startDate: "2015-11-18",
-        positionSizeYen: 10000,
-    },
     BTC_JPY: {
         sma1Periods: 2,
         sma2Periods: 11,
@@ -106,46 +99,47 @@ export function calculateTrendHodlStrategy(data, params, longOnly = false) {
     console.log("Filtered entries:", filteredEntries.length, "startDate:", params.startDate);
     // Get latest close price for PnL calculation
     const latestClose = data[0][4];
-    // Build positions array (reverse to show newest first)
+    // Build positions array in chronological order (oldest to newest)
     const positions = [];
     let cumulativePositionSize = 0;
-    // Reverse to show latest trade first
-    const reversedEntries = [...filteredEntries].reverse();
-    reversedEntries.forEach((entry, idx) => {
+    let cumulativePnl = 0;
+    // Process chronologically (filteredEntries is already oldest-first)
+    filteredEntries.forEach((entry, idx) => {
         // Position size in BTC (or asset)
         const positionSize = params.positionSizeYen / entry.entryPrice;
         cumulativePositionSize += positionSize;
         // PnL for this position (rounded down)
         const pnl = Math.floor((latestClose - entry.entryPrice) * positionSize);
-        // Recalculate total PnL from scratch for accuracy (use original filtered array order)
-        let totalPnl = 0;
-        const originalIdx = filteredEntries.length - 1 - idx;
-        for (let j = 0; j <= originalIdx; j++) {
-            const prevEntry = filteredEntries[j];
-            const prevPositionSize = params.positionSizeYen / prevEntry.entryPrice;
-            totalPnl += (latestClose - prevEntry.entryPrice) * prevPositionSize;
-        }
-        totalPnl = Math.floor(totalPnl);
+        cumulativePnl += pnl;
+        // Total value: current market value of accumulated BTC holdings
+        const totalValue = Math.floor(cumulativePositionSize * latestClose);
         // Format date
         const date = new Date(entry.timestamp);
         const jstOffset = 9 * 60 * 60 * 1000;
         const jstTime = new Date(date.getTime() + jstOffset + date.getTimezoneOffset() * 60 * 1000);
         const formattedDate = `${jstTime.getFullYear()}-${String(jstTime.getMonth() + 1).padStart(2, "0")}-${String(jstTime.getDate()).padStart(2, "0")} ${String(jstTime.getHours()).padStart(2, "0")}:${String(jstTime.getMinutes()).padStart(2, "0")}`;
         positions.push({
-            tradeNo: idx + 1,
+            tradeNo: idx + 1, // Trade #1 = oldest, chronologically first
             date: formattedDate,
             timestamp: entry.timestamp,
             entryPrice: entry.entryPrice,
             positionSize: positionSize,
             pnl: pnl,
-            totalPositionSize: cumulativePositionSize,
-            totalPnl: totalPnl,
+            totalPositionSize: cumulativePositionSize, // Accumulates chronologically
+            totalPnl: Math.floor(cumulativePnl),
+            totalValue: totalValue,
         });
     });
+    // Reverse to show newest first in table
+    positions.reverse();
     return { positions };
 }
 // Render strategy controls HTML
 export function renderStrategyControls(pair) {
+    // Only show controls for BTC_JPY
+    if (pair !== "BTC_JPY") {
+        return ``;
+    }
     return `
     <div class="controls">
       <label for="sma1Periods">SMA1</label>
@@ -176,6 +170,7 @@ export function renderStrategyTable() {
             <th>PnL</th>
             <th>Total Position Size</th>
             <th>Total PnL</th>
+            <th>Total Value</th>
           </tr>
         </thead>
         <tbody></tbody>
@@ -184,7 +179,14 @@ export function renderStrategyTable() {
   `;
 }
 // Render table rows
-export function renderTableRows(tbody, data, filledData, result, formatJstDate, formatPrice) {
+export function renderTableRows(tbody, data, filledData, result, formatJstDate, formatPrice, pair) {
+    // Show message for unsupported pairs
+    if (pair !== "BTC_JPY") {
+        const tr = document.createElement("tr");
+        tr.innerHTML = '<td colspan="100" style="text-align: center; padding: 20px; font-style: italic; color: #666;">No Strategy Defined</td>';
+        tbody.appendChild(tr);
+        return;
+    }
     const { positions } = result;
     positions.forEach((position) => {
         const tr = document.createElement("tr");
@@ -196,23 +198,13 @@ export function renderTableRows(tbody, data, filledData, result, formatJstDate, 
       <td>${formatPrice(position.pnl)}</td>
       <td>${position.totalPositionSize.toFixed(8)}</td>
       <td>${formatPrice(position.totalPnl)}</td>
+      <td>${formatPrice(position.totalValue)}</td>
     `;
         tbody.appendChild(tr);
     });
 }
-// Setup strategy-specific event listeners
-export function setupEventListeners(updateTableCallback, getCurrentData, saveParamsCallback) {
-    // Input change listeners
-    const allInputs = document.querySelectorAll("#strategyControls input[type='number'], #strategyControls input[type='date']");
-    allInputs.forEach((input) => {
-        input.addEventListener("change", () => {
-            saveParamsCallback();
-            const data = getCurrentData();
-            if (data)
-                updateTableCallback(data);
-        });
-    });
-}
+// Note: Event listeners are handled by script.js attachStrategyEventListeners()
+// No need for strategy-specific setupEventListeners for TrendHodl
 // Update input fields from params
 export function updateInputsFromParams(params) {
     const sma1Input = document.getElementById("sma1Periods");

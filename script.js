@@ -115,9 +115,12 @@ async function switchStrategy(strategyName) {
         strategyModule = await import(`./${strategyName}.js`);
         // Initialize params from strategy defaults for all pairs
         APP_CONFIG.availablePairs.forEach((pair) => {
-            pairStates[pair.value].params = {
-                ...strategyModule.DEFAULT_PARAMS[pair.value],
-            };
+            // Only set params if strategy supports this pair
+            if (strategyModule.DEFAULT_PARAMS[pair.value]) {
+                pairStates[pair.value].params = {
+                    ...strategyModule.DEFAULT_PARAMS[pair.value],
+                };
+            }
         });
         // Render strategy UI
         const strategyControlsContainer = document.getElementById("strategyControls");
@@ -229,7 +232,7 @@ function updateTable(data) {
     const result = calculateFunc(filledData, pairStates[currentPair].params);
     // Let strategy render its own table rows
     if (strategyModule.renderTableRows) {
-        strategyModule.renderTableRows(tbody, data, filledData, result, formatJstDate, formatPrice);
+        strategyModule.renderTableRows(tbody, data, filledData, result, formatJstDate, formatPrice, currentPair);
         // Call strategy's post-render function if it exists
         if (strategyModule.toggleColumns) {
             strategyModule.toggleColumns();
@@ -260,8 +263,21 @@ function changePair() {
         if (pairLabel) {
             pairLabel.textContent = currentPair;
         }
+        // Re-render strategy controls for new pair
+        const strategyControlsContainer = document.getElementById("strategyControls");
+        if (strategyControlsContainer && strategyModule) {
+            strategyControlsContainer.innerHTML = "";
+            strategyControlsContainer.innerHTML =
+                strategyModule.renderStrategyControls(currentPair);
+        }
         // Update input boxes with new pair's params
         updateInputsFromParams();
+        // Re-attach event listeners
+        attachStrategyEventListeners();
+        // Setup strategy-specific event listeners if available
+        if (strategyModule && strategyModule.setupEventListeners) {
+            strategyModule.setupEventListeners(updateTable, () => pairStates[currentPair].existingData, saveParamsFromInputs);
+        }
         // Restore new pair's state
         existingData = pairStates[currentPair].existingData;
         updatedJson = pairStates[currentPair].updatedJson;

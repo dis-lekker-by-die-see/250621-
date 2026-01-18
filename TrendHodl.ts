@@ -2,7 +2,8 @@
 // Enters positions on TrendFollow long signals, never exits, accumulates over time
 
 // Type definitions
-export type TradingPair = "FX_BTC_JPY" | "BTC_JPY";
+export type TradingPair = "BTC_JPY";
+
 export type OHLCEntry = [number, number, number, number, number, number];
 
 export interface TrendHodlParams {
@@ -21,6 +22,7 @@ export interface Position {
   pnl: number;
   totalPositionSize: number;
   totalPnl: number;
+  totalValue: number;
 }
 
 export interface TrendHodlResult {
@@ -30,17 +32,10 @@ export interface TrendHodlResult {
 // Minimum allowed start dates for each pair
 const MIN_START_DATES: Record<TradingPair, string> = {
   BTC_JPY: "2015-06-24",
-  FX_BTC_JPY: "2015-11-18",
 };
 
 // Default parameters for each trading pair
 export const DEFAULT_PARAMS: Record<TradingPair, TrendHodlParams> = {
-  FX_BTC_JPY: {
-    sma1Periods: 2,
-    sma2Periods: 11,
-    startDate: "2015-11-18",
-    positionSizeYen: 10000,
-  },
   BTC_JPY: {
     sma1Periods: 2,
     sma2Periods: 11,
@@ -87,7 +82,7 @@ export function calculateTrendHodlStrategy(
   // Determine SIDE (position direction): 1 = long, 0 = flat
   const SIDE: number[] = [];
   const useSlopeLogic = params.sma1Periods === params.sma2Periods;
-  
+
   for (let i = 0; i < data.length; i++) {
     if (SMA1[i] === null) {
       SIDE.push(0);
@@ -160,30 +155,23 @@ export function calculateTrendHodlStrategy(
   // Get latest close price for PnL calculation
   const latestClose = data[0][4] as number;
 
-  // Build positions array (reverse to show newest first)
+  // Build positions array in chronological order (oldest to newest)
   const positions: Position[] = [];
   let cumulativePositionSize = 0;
+  let cumulativePnl = 0;
 
-  // Reverse to show latest trade first
-  const reversedEntries = [...filteredEntries].reverse();
-
-  reversedEntries.forEach((entry, idx) => {
+  // Process chronologically (filteredEntries is already oldest-first)
+  filteredEntries.forEach((entry, idx) => {
     // Position size in BTC (or asset)
     const positionSize = params.positionSizeYen / entry.entryPrice;
     cumulativePositionSize += positionSize;
 
     // PnL for this position (rounded down)
     const pnl = Math.floor((latestClose - entry.entryPrice) * positionSize);
+    cumulativePnl += pnl;
 
-    // Recalculate total PnL from scratch for accuracy (use original filtered array order)
-    let totalPnl = 0;
-    const originalIdx = filteredEntries.length - 1 - idx;
-    for (let j = 0; j <= originalIdx; j++) {
-      const prevEntry = filteredEntries[j];
-      const prevPositionSize = params.positionSizeYen / prevEntry.entryPrice;
-      totalPnl += (latestClose - prevEntry.entryPrice) * prevPositionSize;
-    }
-    totalPnl = Math.floor(totalPnl);
+    // Total value: current market value of accumulated BTC holdings
+    const totalValue = Math.floor(cumulativePositionSize * latestClose);
 
     // Format date
     const date = new Date(entry.timestamp);
@@ -194,22 +182,31 @@ export function calculateTrendHodlStrategy(
     const formattedDate = `${jstTime.getFullYear()}-${String(jstTime.getMonth() + 1).padStart(2, "0")}-${String(jstTime.getDate()).padStart(2, "0")} ${String(jstTime.getHours()).padStart(2, "0")}:${String(jstTime.getMinutes()).padStart(2, "0")}`;
 
     positions.push({
-      tradeNo: idx + 1,
+      tradeNo: idx + 1, // Trade #1 = oldest, chronologically first
       date: formattedDate,
       timestamp: entry.timestamp,
       entryPrice: entry.entryPrice,
       positionSize: positionSize,
       pnl: pnl,
-      totalPositionSize: cumulativePositionSize,
-      totalPnl: totalPnl,
+      totalPositionSize: cumulativePositionSize, // Accumulates chronologically
+      totalPnl: Math.floor(cumulativePnl),
+      totalValue: totalValue,
     });
   });
+
+  // Reverse to show newest first in table
+  positions.reverse();
 
   return { positions };
 }
 
 // Render strategy controls HTML
 export function renderStrategyControls(pair?: TradingPair): string {
+  // Only show controls for BTC_JPY
+  if (pair !== "BTC_JPY") {
+    return ``;
+  }
+
   return `
     <div class="controls">
       <label for="sma1Periods">SMA1</label>
@@ -241,6 +238,7 @@ export function renderStrategyTable(): string {
             <th>PnL</th>
             <th>Total Position Size</th>
             <th>Total PnL</th>
+            <th>Capital Value</th>
           </tr>
         </thead>
         <tbody></tbody>
@@ -257,7 +255,17 @@ export function renderTableRows(
   result: TrendHodlResult,
   formatJstDate: (timestamp: number) => string,
   formatPrice: (value: number | null) => string,
+  pair?: TradingPair,
 ): void {
+  // Show message for unsupported pairs
+  if (pair !== "BTC_JPY") {
+    const tr = document.createElement("tr");
+    tr.innerHTML =
+      '<td colspan="100" style="text-align: center; padding: 20px; font-style: italic; color: #666;">No Strategy Defined</td>';
+    tbody.appendChild(tr);
+    return;
+  }
+
   const { positions } = result;
 
   positions.forEach((position: Position) => {
@@ -270,29 +278,14 @@ export function renderTableRows(
       <td>${formatPrice(position.pnl)}</td>
       <td>${position.totalPositionSize.toFixed(8)}</td>
       <td>${formatPrice(position.totalPnl)}</td>
+      <td>${formatPrice(position.totalValue)}</td>
     `;
     tbody.appendChild(tr);
   });
 }
 
-// Setup strategy-specific event listeners
-export function setupEventListeners(
-  updateTableCallback: (data: OHLCEntry[]) => void,
-  getCurrentData: () => OHLCEntry[] | null,
-  saveParamsCallback: () => void,
-): void {
-  // Input change listeners
-  const allInputs = document.querySelectorAll(
-    "#strategyControls input[type='number'], #strategyControls input[type='date']",
-  );
-  allInputs.forEach((input) => {
-    input.addEventListener("change", () => {
-      saveParamsCallback();
-      const data = getCurrentData();
-      if (data) updateTableCallback(data);
-    });
-  });
-}
+// Note: Event listeners are handled by script.js attachStrategyEventListeners()
+// No need for strategy-specific setupEventListeners for TrendHodl
 
 // Update input fields from params
 export function updateInputsFromParams(params: TrendHodlParams): void {
@@ -325,7 +318,7 @@ export function saveParamsFromInputs(): TrendHodlParams {
 
   let sma1 = parseFloat(sma1Input?.value) || 2;
   let sma2 = parseFloat(sma2Input?.value) || 11;
-  
+
   // Ensure SMA2 >= SMA1 (SMA2 should be slower/longer-term)
   if (sma2 < sma1) {
     sma2 = sma1;
