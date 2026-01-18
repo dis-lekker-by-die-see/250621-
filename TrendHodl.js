@@ -7,8 +7,8 @@ const MIN_START_DATES = {
 // Default parameters for each trading pair
 export const DEFAULT_PARAMS = {
     BTC_JPY: {
-        sma1Periods: 2,
-        sma2Periods: 2,
+        sma1Periods: 5,
+        sma2Periods: 1,
         startDate: "2015-06-24",
         positionSizeYen: 10000,
     },
