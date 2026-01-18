@@ -4,12 +4,16 @@
 const MIN_START_DATES = {
     BTC_JPY: "2015-06-24",
 };
+// Calculate default start date as exactly 1 year ago
+const oneYearAgo = new Date();
+oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+const DEFAULT_START_DATE = oneYearAgo.toISOString().split("T")[0]; // YYYY-MM-DD format
 // Default parameters for each trading pair
 export const DEFAULT_PARAMS = {
     BTC_JPY: {
-        sma1Periods: 5,
+        sma1Periods: 9,
         sma2Periods: 1,
-        startDate: "2015-06-24",
+        startDate: DEFAULT_START_DATE,
         positionSizeYen: 10000,
     },
 };
@@ -120,6 +124,9 @@ export function calculateTrendHodlStrategy(data, params, longOnly = false) {
         cumulativePnl += pnl;
         // Total value: current market value of accumulated BTC holdings
         const totalValue = Math.floor(cumulativePositionSize * latestClose);
+        // Calculate profit percentage
+        const totalInvested = params.positionSizeYen * (idx + 1);
+        const profitPercent = (totalValue / totalInvested - 1) * 100;
         // Format date
         const date = new Date(entry.timestamp);
         const jstOffset = 9 * 60 * 60 * 1000;
@@ -135,6 +142,7 @@ export function calculateTrendHodlStrategy(data, params, longOnly = false) {
             totalPositionSize: cumulativePositionSize, // Accumulates chronologically
             totalPnl: Math.floor(cumulativePnl),
             totalValue: totalValue,
+            profitPercent: profitPercent,
             sma1: SMA1[entry.index],
             sma2: useSlopeLogic ? null : SMA2[entry.index],
         });
@@ -180,6 +188,7 @@ export function renderStrategyTable() {
             <th>Total Position Size</th>
             <th>Total PnL</th>
             <th>Capital Value</th>
+            <th>Profit %</th>
             <th>SMA1</th>
             <th>SMA2</th>
           </tr>
@@ -195,7 +204,7 @@ export function renderTableRows(tbody, data, filledData, result, formatJstDate, 
     if (pair !== "BTC_JPY") {
         const tr = document.createElement("tr");
         tr.innerHTML =
-            '<td colspan="100" style="text-align: center; padding: 20px; font-style: italic; color: #666;">No Strategy Defined</td>';
+            '<td colspan="100" style="text-align: left; padding: 20px; font-style: italic; color: #666;">No Strategy Defined : Change Pair</td>';
         tbody.appendChild(tr);
         return;
     }
@@ -211,6 +220,7 @@ export function renderTableRows(tbody, data, filledData, result, formatJstDate, 
       <td>${position.totalPositionSize.toFixed(8)}</td>
       <td>${formatPrice(position.totalPnl)}</td>
       <td>${formatPrice(position.totalValue)}</td>
+      <td>${position.profitPercent.toFixed(2)}%</td>
       <td>${formatPrice(position.sma1)}</td>
       <td>${position.sma2 !== null ? formatPrice(position.sma2) : "-"}</td>
     `;
