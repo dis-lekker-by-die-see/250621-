@@ -8,7 +8,7 @@ const MIN_START_DATES = {
 export const DEFAULT_PARAMS = {
     BTC_JPY: {
         sma1Periods: 2,
-        sma2Periods: 11,
+        sma2Periods: 2,
         startDate: "2015-06-24",
         positionSizeYen: 10000,
     },

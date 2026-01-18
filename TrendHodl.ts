@@ -40,7 +40,7 @@ const MIN_START_DATES: Record<TradingPair, string> = {
 export const DEFAULT_PARAMS: Record<TradingPair, TrendHodlParams> = {
   BTC_JPY: {
     sma1Periods: 2,
-    sma2Periods: 11,
+    sma2Periods: 2,
     startDate: "2015-06-24",
     positionSizeYen: 10000,
   },
@@ -63,9 +63,7 @@ function calculateSMA(data: OHLCEntry[], periods: number): (number | null)[] {
       const currentClose = data[i][4];
       const prevSMA = sma[i + 1];
       if (currentClose !== null && prevSMA !== null) {
-        sma[i] = Math.round(
-          (prevSMA * (periods - 1) + currentClose) / periods,
-        );
+        sma[i] = Math.round((prevSMA * (periods - 1) + currentClose) / periods);
       } else {
         sma[i] = prevSMA;
       }
