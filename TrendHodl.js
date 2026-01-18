@@ -1,6 +1,5 @@
 // TrendHodl Strategy - Accumulation strategy using TrendFollow signals
 // Enters positions on TrendFollow long signals, never exits, accumulates over time
-import { calculateTrendFollowStrategy, } from "./TrendFollow.js";
 // Minimum allowed start dates for each pair
 const MIN_START_DATES = {
     BTC_JPY: "2015-06-24",
@@ -11,16 +10,12 @@ export const DEFAULT_PARAMS = {
     FX_BTC_JPY: {
         sma1Periods: 2,
         sma2Periods: 11,
-        stdDevPeriods: 3,
-        stdDevCutOff: 4.1,
         startDate: "2015-11-18",
         positionSizeYen: 10000,
     },
     BTC_JPY: {
         sma1Periods: 2,
         sma2Periods: 11,
-        stdDevPeriods: 2,
-        stdDevCutOff: 2.8,
         startDate: "2015-06-24",
         positionSizeYen: 10000,
     },
@@ -28,20 +23,58 @@ export const DEFAULT_PARAMS = {
 export function getMinStartDate(pair) {
     return MIN_START_DATES[pair];
 }
+// Helper function to calculate Simple Moving Average
+function calculateSMA(data, periods) {
+    const sma = [];
+    for (let i = 0; i < data.length; i++) {
+        if (i < periods - 1) {
+            sma.push(null);
+        }
+        else {
+            let sum = 0;
+            for (let j = 0; j < periods; j++) {
+                sum += data[i - j][4]; // CLOSE price
+            }
+            sma.push(sum / periods);
+        }
+    }
+    return sma;
+}
 // Calculate TrendHodl strategy
 export function calculateTrendHodlStrategy(data, params, longOnly = false) {
     if (!data || data.length === 0) {
         return { positions: [] };
     }
-    // Run TrendFollow strategy on full dataset to get SIDE signals
-    const trendFollowResult = calculateTrendFollowStrategy(data, {
-        sma1Periods: params.sma1Periods,
-        sma2Periods: params.sma2Periods,
-        stdDevPeriods: params.stdDevPeriods,
-        stdDevCutOff: params.stdDevCutOff,
-        longOnly: true,
-    }, true);
-    const { SIDE } = trendFollowResult;
+    // Calculate SMAs
+    const SMA1 = calculateSMA(data, params.sma1Periods);
+    const SMA2 = calculateSMA(data, params.sma2Periods);
+    // Determine SIDE (position direction): 1 = long, 0 = flat
+    const SIDE = [];
+    const useSlopeLogic = params.sma1Periods === params.sma2Periods;
+    for (let i = 0; i < data.length; i++) {
+        if (SMA1[i] === null) {
+            SIDE.push(0);
+        }
+        else if (useSlopeLogic) {
+            // When periods equal, use SMA slope: long when SMA rising
+            // Data is newest-first, so i+1 is previous day
+            if (i === data.length - 1 || SMA1[i + 1] === null) {
+                SIDE.push(0); // No previous data to compare
+            }
+            else {
+                SIDE.push(SMA1[i] > SMA1[i + 1] ? 1 : 0);
+            }
+        }
+        else {
+            // Crossover logic: long when SMA1 > SMA2
+            if (SMA2[i] === null) {
+                SIDE.push(0);
+            }
+            else {
+                SIDE.push(SMA1[i] > SMA2[i] ? 1 : 0);
+            }
+        }
+    }
     // Find all entry points (where SIDE changes to 1)
     // Loop bottom up (oldest to newest) to match TrendFollow logic
     const entryPoints = [];
@@ -112,26 +145,20 @@ export function calculateTrendHodlStrategy(data, params, longOnly = false) {
     return { positions };
 }
 // Render strategy controls HTML
-export function renderStrategyControls() {
+export function renderStrategyControls(pair) {
     return `
     <div class="controls">
       <label for="sma1Periods">SMA1</label>
-      <input type="number" id="sma1Periods" />
+      <input type="number" id="sma1Periods" min="1" />
 
       <label for="sma2Periods">SMA2</label>
-      <input type="number" id="sma2Periods" />
-      <br />
-      <label for="stdDevPeriods">StdDev</label>
-      <input type="number" id="stdDevPeriods" step="1" />
-
-      <label for="stdDevCutOff">CutOff</label>
-      <input type="number" id="stdDevCutOff" step="0.1" />
+      <input type="number" id="sma2Periods" min="1" />
       <br />
       <label for="startDate">Start Date</label>
       <input type="date" id="startDate" />
 
       <label for="positionSizeYen">Position Size (¥)</label>
-      <input type="number" id="positionSizeYen" step="1" />
+      <input type="number" id="positionSizeYen" step="1000" min="0" />
     </div>
   `;
 }
@@ -190,18 +217,12 @@ export function setupEventListeners(updateTableCallback, getCurrentData, savePar
 export function updateInputsFromParams(params) {
     const sma1Input = document.getElementById("sma1Periods");
     const sma2Input = document.getElementById("sma2Periods");
-    const stdDevPeriodsInput = document.getElementById("stdDevPeriods");
-    const stdDevCutOffInput = document.getElementById("stdDevCutOff");
     const startDateInput = document.getElementById("startDate");
     const positionSizeYenInput = document.getElementById("positionSizeYen");
     if (sma1Input)
         sma1Input.value = params.sma1Periods.toString();
     if (sma2Input)
         sma2Input.value = params.sma2Periods.toString();
-    if (stdDevPeriodsInput)
-        stdDevPeriodsInput.value = params.stdDevPeriods.toString();
-    if (stdDevCutOffInput)
-        stdDevCutOffInput.value = params.stdDevCutOff.toString();
     if (startDateInput)
         startDateInput.value = params.startDate;
     if (positionSizeYenInput)
@@ -211,15 +232,17 @@ export function updateInputsFromParams(params) {
 export function saveParamsFromInputs() {
     const sma1Input = document.getElementById("sma1Periods");
     const sma2Input = document.getElementById("sma2Periods");
-    const stdDevPeriodsInput = document.getElementById("stdDevPeriods");
-    const stdDevCutOffInput = document.getElementById("stdDevCutOff");
     const startDateInput = document.getElementById("startDate");
     const positionSizeYenInput = document.getElementById("positionSizeYen");
+    let sma1 = parseFloat(sma1Input?.value) || 2;
+    let sma2 = parseFloat(sma2Input?.value) || 11;
+    // Ensure SMA2 >= SMA1 (SMA2 should be slower/longer-term)
+    if (sma2 < sma1) {
+        sma2 = sma1;
+    }
     return {
-        sma1Periods: parseFloat(sma1Input?.value) || 2,
-        sma2Periods: parseFloat(sma2Input?.value) || 11,
-        stdDevPeriods: parseInt(stdDevPeriodsInput?.value) || 3,
-        stdDevCutOff: parseFloat(stdDevCutOffInput?.value) || 4.1,
+        sma1Periods: sma1,
+        sma2Periods: sma2,
         startDate: startDateInput?.value || "2015-11-18",
         positionSizeYen: parseFloat(positionSizeYenInput?.value) || 10000,
     };

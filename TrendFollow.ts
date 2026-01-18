@@ -139,7 +139,7 @@ export function calculateTrendFollowStrategy(
   isLongOnly?: boolean,
 ): TrendFollowResult {
   console.log("calculateTrendFollowStrategy called with params:", params);
-  
+
   // Get longOnly from params or checkbox
   if (isLongOnly === undefined) {
     isLongOnly = params.longOnly;
@@ -157,26 +157,44 @@ export function calculateTrendFollowStrategy(
   let lastPosition = 0;
   let runningTotal = 0;
 
+  const useSlopeLogic = params.sma1Periods === params.sma2Periods;
+
   // Calculate SIDE, positions, P/L, and total bottom up
   for (let i = data.length - 1; i >= 0; i--) {
     const row = data[i];
-    // Step 1: SMA1 comparison
-    if (
-      i === data.length - 1 ||
-      (sma1Values[i] ?? 0) > (sma1Values[i + 1] ?? 0)
-    ) {
-      SIDE[i] = 1; // Long
+
+    if (useSlopeLogic) {
+      // When periods equal, use SMA slope
+      // Data is newest-first, so i+1 is previous day
+      if (i === data.length - 1) {
+        SIDE[i] = 0; // No previous data
+      } else if ((sma1Values[i] ?? 0) > (sma1Values[i + 1] ?? 0)) {
+        SIDE[i] = 1; // Long when rising
+      } else if ((sma1Values[i] ?? 0) < (sma1Values[i + 1] ?? 0)) {
+        SIDE[i] = -1; // Short when falling
+      } else {
+        SIDE[i] = 0; // Flat when unchanged
+      }
     } else {
-      SIDE[i] = -1; // Short
+      // Crossover logic
+      // Step 1: SMA1 comparison
+      if (
+        i === data.length - 1 ||
+        (sma1Values[i] ?? 0) > (sma1Values[i + 1] ?? 0)
+      ) {
+        SIDE[i] = 1; // Long
+      } else {
+        SIDE[i] = -1; // Short
+      }
+
+      // Step 3: SMA1 vs SMA2 check
+      if ((sma1Values[i] ?? 0) < (sma2Values[i] ?? 0)) {
+        SIDE[i] = 0; // No position
+      }
     }
 
-    // Step 2: STD DEV check
+    // Step 2: STD DEV check (applies to both logic types)
     if (stdDevValues[i] > params.stdDevCutOff) {
-      SIDE[i] = 0; // No position
-    }
-
-    // Step 3: SMA1 vs SMA2 check
-    if ((sma1Values[i] ?? 0) < (sma2Values[i] ?? 0)) {
       SIDE[i] = 0; // No position
     }
 
@@ -231,26 +249,30 @@ export function renderStrategyControls(pair?: TradingPair): string {
   return `
     <div class="controls">
       <label for="sma1Periods">SMA1</label>
-      <input type="number" id="sma1Periods" />
+      <input type="number" id="sma1Periods" min="1" />
 
       <label for="sma2Periods">SMA2</label>
-      <input type="number" id="sma2Periods" />
+      <input type="number" id="sma2Periods" min="1" />
       <br />
       <label for="stdDevPeriods">StdDev</label>
-      <input type="number" id="stdDevPeriods" step="1" />
+      <input type="number" id="stdDevPeriods" step="1" min="1" />
 
       <label for="stdDevCutOff">CutOff</label>
-      <input type="number" id="stdDevCutOff" step="0.1" />
+      <input type="number" id="stdDevCutOff" step="0.1" min="0" />
     </div>
     <div>
       <label>
         <input type="checkbox" id="toggleColumns" unchecked />
         OHLC Columns
       </label>
-      ${showLongOnly ? `<label>
+      ${
+        showLongOnly
+          ? `<label>
         <input type="checkbox" id="toggleLongOnly" unchecked />
         Long Only
-      </label>` : ''}
+      </label>`
+          : ""
+      }
     </div>
   `;
 }
@@ -396,7 +418,9 @@ export function updateInputsFromParams(params: TrendFollowParams): void {
   const stdDevCutOffInput = document.getElementById(
     "stdDevCutOff",
   ) as HTMLInputElement;
-  const longOnlyCheckbox = document.getElementById("toggleLongOnly") as HTMLInputElement;
+  const longOnlyCheckbox = document.getElementById(
+    "toggleLongOnly",
+  ) as HTMLInputElement;
 
   if (sma1Input) sma1Input.value = params.sma1Periods.toString();
   if (sma2Input) sma2Input.value = params.sma2Periods.toString();
@@ -417,16 +441,26 @@ export function saveParamsFromInputs(): TrendFollowParams {
   const stdDevCutOffInput = document.getElementById(
     "stdDevCutOff",
   ) as HTMLInputElement;
-  const longOnlyCheckbox = document.getElementById("toggleLongOnly") as HTMLInputElement;
+  const longOnlyCheckbox = document.getElementById(
+    "toggleLongOnly",
+  ) as HTMLInputElement;
+
+  let sma1 = parseFloat(sma1Input?.value) || 2;
+  let sma2 = parseFloat(sma2Input?.value) || 11;
+
+  // Ensure SMA2 >= SMA1 (SMA2 should be slower/longer-term)
+  if (sma2 < sma1) {
+    sma2 = sma1;
+  }
 
   const params = {
-    sma1Periods: parseFloat(sma1Input?.value) || 2,
-    sma2Periods: parseFloat(sma2Input?.value) || 11,
+    sma1Periods: sma1,
+    sma2Periods: sma2,
     stdDevPeriods: parseInt(stdDevPeriodsInput?.value) || 3,
     stdDevCutOff: parseFloat(stdDevCutOffInput?.value) || 4.1,
     longOnly: longOnlyCheckbox?.checked ?? false,
   };
-  
+
   console.log("TrendFollow saveParamsFromInputs:", params);
   return params;
 }

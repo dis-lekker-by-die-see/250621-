@@ -156,10 +156,12 @@ async function switchStrategy(strategyName: string): Promise<void> {
     const strategyTableContainer = document.getElementById("strategyTable");
 
     if (strategyControlsContainer) {
+      strategyControlsContainer.innerHTML = ""; // Clear first
       strategyControlsContainer.innerHTML =
         strategyModule.renderStrategyControls(currentPair);
     }
     if (strategyTableContainer) {
+      strategyTableContainer.innerHTML = ""; // Clear first
       strategyTableContainer.innerHTML = strategyModule.renderStrategyTable();
     }
 

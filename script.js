@@ -123,10 +123,12 @@ async function switchStrategy(strategyName) {
         const strategyControlsContainer = document.getElementById("strategyControls");
         const strategyTableContainer = document.getElementById("strategyTable");
         if (strategyControlsContainer) {
+            strategyControlsContainer.innerHTML = ""; // Clear first
             strategyControlsContainer.innerHTML =
                 strategyModule.renderStrategyControls(currentPair);
         }
         if (strategyTableContainer) {
+            strategyTableContainer.innerHTML = ""; // Clear first
             strategyTableContainer.innerHTML = strategyModule.renderStrategyTable();
         }
         // Re-attach event listeners for dynamically created elements
