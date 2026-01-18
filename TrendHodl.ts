@@ -23,6 +23,8 @@ export interface Position {
   totalPositionSize: number;
   totalPnl: number;
   totalValue: number;
+  sma1: number | null;
+  sma2: number | null;
 }
 
 export interface TrendHodlResult {
@@ -48,18 +50,25 @@ export function getMinStartDate(pair: TradingPair): string {
   return MIN_START_DATES[pair];
 }
 
-// Helper function to calculate Simple Moving Average
+// Helper function to calculate Simple Moving Average (same as TrendFollow)
 function calculateSMA(data: OHLCEntry[], periods: number): (number | null)[] {
-  const sma: (number | null)[] = [];
-  for (let i = 0; i < data.length; i++) {
-    if (i < periods - 1) {
-      sma.push(null);
-    } else {
-      let sum = 0;
-      for (let j = 0; j < periods; j++) {
-        sum += data[i - j][4] as number; // CLOSE price
+  if (!data || data.length === 0) return [];
+  const sma: (number | null)[] = new Array(data.length).fill(null);
+  if (data.length > 0) {
+    sma[data.length - 1] =
+      data[data.length - 1][4] !== null
+        ? Math.round(data[data.length - 1][4]!)
+        : null;
+    for (let i = data.length - 2; i >= 0; i--) {
+      const currentClose = data[i][4];
+      const prevSMA = sma[i + 1];
+      if (currentClose !== null && prevSMA !== null) {
+        sma[i] = Math.round(
+          (prevSMA * (periods - 1) + currentClose) / periods,
+        );
+      } else {
+        sma[i] = prevSMA;
       }
-      sma.push(sum / periods);
     }
   }
   return sma;
@@ -75,19 +84,21 @@ export function calculateTrendHodlStrategy(
     return { positions: [] };
   }
 
-  // Calculate SMAs
+  // Check which logic to use FIRST
+  const useSlopeLogic = params.sma1Periods >= params.sma2Periods;
+
+  // Calculate only what's needed
   const SMA1 = calculateSMA(data, params.sma1Periods);
-  const SMA2 = calculateSMA(data, params.sma2Periods);
+  const SMA2 = useSlopeLogic ? [] : calculateSMA(data, params.sma2Periods);
 
   // Determine SIDE (position direction): 1 = long, 0 = flat
   const SIDE: number[] = [];
-  const useSlopeLogic = params.sma1Periods === params.sma2Periods;
 
   for (let i = 0; i < data.length; i++) {
     if (SMA1[i] === null) {
       SIDE.push(0);
     } else if (useSlopeLogic) {
-      // When periods equal, use SMA slope: long when SMA rising
+      // When sma1 >= sma2, ignore sma2 and use SMA1 slope: long when SMA rising
       // Data is newest-first, so i+1 is previous day
       if (i === data.length - 1 || SMA1[i + 1] === null) {
         SIDE.push(0); // No previous data to compare
@@ -191,6 +202,8 @@ export function calculateTrendHodlStrategy(
       totalPositionSize: cumulativePositionSize, // Accumulates chronologically
       totalPnl: Math.floor(cumulativePnl),
       totalValue: totalValue,
+      sma1: SMA1[entry.index],
+      sma2: useSlopeLogic ? null : SMA2[entry.index],
     });
   });
 
@@ -239,6 +252,8 @@ export function renderStrategyTable(): string {
             <th>Total Position Size</th>
             <th>Total PnL</th>
             <th>Capital Value</th>
+            <th>SMA1</th>
+            <th>SMA2</th>
           </tr>
         </thead>
         <tbody></tbody>
@@ -279,6 +294,8 @@ export function renderTableRows(
       <td>${position.totalPositionSize.toFixed(8)}</td>
       <td>${formatPrice(position.totalPnl)}</td>
       <td>${formatPrice(position.totalValue)}</td>
+      <td>${formatPrice(position.sma1)}</td>
+      <td>${position.sma2 !== null ? formatPrice(position.sma2) : "-"}</td>
     `;
     tbody.appendChild(tr);
   });
