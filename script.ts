@@ -1,22 +1,19 @@
-// Type definitions
-type TradingPair = "FX_BTC_JPY" | "BTC_JPY";
-type OHLCEntry = [
-  number, // timestamp
-  number | null, // open
-  number | null, // high
-  number | null, // low
-  number | null, // close
-  number, // volume
-  number, // ask
-  number, // bid
-  number, // sell volume
-  number, // buy volume
-];
+// Import strategy types and functions
+import {
+  TradingPair,
+  OHLCEntry,
+  TrendFollowParams,
+  DEFAULT_PARAMS,
+  calculateTrendFollowStrategy,
+  renderStrategyControls,
+  renderStrategyTable,
+} from "./TrendFollow.js";
 
 interface PairState {
   existingData: OHLCEntry[] | null;
   updatedJson: OHLCEntry[] | null;
   logMessages: string[];
+  params: TrendFollowParams;
 }
 
 const apiUrl: string = "https://lightchart.bitflyer.com/api/ohlc";
@@ -24,8 +21,18 @@ let currentPair: TradingPair = "FX_BTC_JPY";
 
 // Per-pair state storage
 const pairStates: Record<TradingPair, PairState> = {
-  FX_BTC_JPY: { existingData: null, updatedJson: null, logMessages: [] },
-  BTC_JPY: { existingData: null, updatedJson: null, logMessages: [] },
+  FX_BTC_JPY: {
+    existingData: null,
+    updatedJson: null,
+    logMessages: [],
+    params: { ...DEFAULT_PARAMS.FX_BTC_JPY },
+  },
+  BTC_JPY: {
+    existingData: null,
+    updatedJson: null,
+    logMessages: [],
+    params: { ...DEFAULT_PARAMS.BTC_JPY },
+  },
 };
 
 // Convenience accessors for current pair's state
@@ -89,92 +96,45 @@ function formatPrice(value: number | null): string {
   return Math.round(value).toLocaleString("en-US", { useGrouping: true });
 }
 
-// EMA
-function calculateSMA1(data: OHLCEntry[], periods1: number): (number | null)[] {
-  if (!data || data.length === 0) return [];
-  const sma1: (number | null)[] = new Array(data.length).fill(null);
-  if (data.length > 0) {
-    sma1[data.length - 1] =
-      data[data.length - 1][4] !== null
-        ? Math.round(data[data.length - 1][4]!)
-        : null; // Initialize with oldest closing price
-    for (let i = data.length - 2; i >= 0; i--) {
-      const currentClose = data[i][4];
-      const prevSMA = sma1[i + 1];
-      if (currentClose !== null && prevSMA !== null) {
-        sma1[i] = Math.round(
-          (prevSMA * (periods1 - 1) + currentClose) / periods1,
-        );
-      } else {
-        sma1[i] = prevSMA; // Use previous SMA if current close is null
-      }
-    }
-  }
-  return sma1;
+// Update input boxes with current pair's params
+function updateInputsFromParams(): void {
+  const params = pairStates[currentPair].params;
+  const sma1Input = document.getElementById("sma1Periods") as HTMLInputElement;
+  const sma2Input = document.getElementById("sma2Periods") as HTMLInputElement;
+  const stdDevPeriodsInput = document.getElementById(
+    "stdDevPeriods",
+  ) as HTMLInputElement;
+  const stdDevCutOffInput = document.getElementById(
+    "stdDevCutOff",
+  ) as HTMLInputElement;
+
+  if (sma1Input) sma1Input.value = params.sma1Periods.toString();
+  if (sma2Input) sma2Input.value = params.sma2Periods.toString();
+  if (stdDevPeriodsInput)
+    stdDevPeriodsInput.value = params.stdDevPeriods.toString();
+  if (stdDevCutOffInput)
+    stdDevCutOffInput.value = params.stdDevCutOff.toString();
 }
 
-function calculateSMA2(data: OHLCEntry[], periods2: number): (number | null)[] {
-  if (!data || data.length === 0) return [];
-  const sma2: (number | null)[] = new Array(data.length).fill(null);
-  if (data.length > 0) {
-    sma2[data.length - 1] =
-      data[data.length - 1][4] !== null
-        ? Math.round(data[data.length - 1][4]!)
-        : null; // Initialize with oldest closing price
-    for (let i = data.length - 2; i >= 0; i--) {
-      const currentClose = data[i][4];
-      const prevSMA = sma2[i + 1];
-      if (currentClose !== null && prevSMA !== null) {
-        sma2[i] = Math.round(
-          (prevSMA * (periods2 - 1) + currentClose) / periods2,
-        );
-      } else {
-        sma2[i] = prevSMA; // Use previous SMA if current close is null
-      }
-    }
-  }
-  return sma2;
-}
+// Save input values to current pair's params
+function saveParamsFromInputs(): void {
+  const sma1Input = document.getElementById("sma1Periods") as HTMLInputElement;
+  const sma2Input = document.getElementById("sma2Periods") as HTMLInputElement;
+  const stdDevPeriodsInput = document.getElementById(
+    "stdDevPeriods",
+  ) as HTMLInputElement;
+  const stdDevCutOffInput = document.getElementById(
+    "stdDevCutOff",
+  ) as HTMLInputElement;
 
-function calculateStdDev(data: OHLCEntry[], stdDevPeriods: number): number[] {
-  if (!data || data.length === 0) return [];
-  const stdDev: number[] = new Array(data.length).fill(0);
-  for (let i = data.length - 1; i >= 0; i--) {
-    let sum = 0;
-    let count = 0;
-    let values: number[] = [];
-    // Collect CLOSE prices from index i to i + stdDevPeriods - 1 (newer rows)
-    for (
-      let j = i;
-      j < Math.min(data.length, i + Math.floor(stdDevPeriods));
-      j++
-    ) {
-      const close = data[j][4];
-      if (close !== 0 && close !== null) {
-        // Exclude 0 (filled nulls)
-        sum += close;
-        count++;
-        values.push(close);
-      }
-    }
-    if (count > 0) {
-      const mean = sum / count;
-      // Calculate population standard deviation (STDEV.P)
-      const varianceSum = values.reduce(
-        (acc, val) => acc + Math.pow(val - mean, 2),
-        0,
-      );
-      const stdDevP = Math.sqrt(varianceSum / count);
-      // Scale as (STDEV.P / CLOSE[i]) * 100
-      const closeValue = data[i][4];
-      stdDev[i] =
-        closeValue !== 0 && closeValue !== null
-          ? (stdDevP / closeValue) * 100
-          : 0;
-    }
-    // If no valid values, stdDev stays 0 (default)
-  }
-  return stdDev;
+  pairStates[currentPair].params.sma1Periods =
+    parseFloat(sma1Input?.value || "2") || 2;
+  pairStates[currentPair].params.sma2Periods =
+    parseFloat(sma2Input?.value || "11") || 11;
+  pairStates[currentPair].params.stdDevPeriods =
+    parseInt(stdDevPeriodsInput?.value || "3") || 3;
+  pairStates[currentPair].params.stdDevCutOff =
+    parseFloat(stdDevCutOffInput?.value || "4.1") || 4.1;
 }
 
 function updateTable(data: OHLCEntry[]): void {
@@ -183,23 +143,9 @@ function updateTable(data: OHLCEntry[]): void {
   if (!tbody) return;
 
   tbody.innerHTML = "";
-  const periods1Input = document.getElementById(
-    "sma1Periods",
-  ) as HTMLInputElement;
-  const periods2Input = document.getElementById(
-    "sma2Periods",
-  ) as HTMLInputElement;
-  const stdDevPeriodsInput = document.getElementById(
-    "stdDevPeriods",
-  ) as HTMLInputElement;
-  const stdDevCutOffInput = document.getElementById(
-    "stdDevCutOff",
-  ) as HTMLInputElement;
-  const periods1 = parseFloat(periods1Input?.value || "1") || 1;
-  const periods2 = parseFloat(periods2Input?.value || "1") || 1;
-  const stdDevPeriodsValue = parseFloat(stdDevPeriodsInput?.value || "3") || 3;
-  const stdDevCutOffValue =
-    parseFloat(stdDevCutOffInput?.value || "4.1") || 4.1;
+
+  // Save current input values to current pair's params
+  saveParamsFromInputs();
 
   // Copy data and fill backward null CLOSE prices
   const filledData: OHLCEntry[] = data.map((row) => [...row] as OHLCEntry);
@@ -212,79 +158,28 @@ function updateTable(data: OHLCEntry[]): void {
     }
   }
 
-  const sma1Values = calculateSMA1(filledData, periods1);
-  const sma2Values = calculateSMA2(filledData, periods2);
-  const stdDevValues = calculateStdDev(filledData, stdDevPeriodsValue);
-  const SIDE: number[] = new Array(data.length).fill(0);
-  const positions: number[] = new Array(data.length).fill(0);
-  const plValues: number[] = new Array(data.length).fill(0);
-  const totalValues: number[] = new Array(data.length).fill(0);
-  let lastPosition = 0;
-  let runningTotal = 0;
+  // Get long-only setting
+  const toggleLongOnly = document.getElementById(
+    "toggleLongOnly",
+  ) as HTMLInputElement;
+  const isLongOnly = toggleLongOnly?.checked ?? false;
 
-  // Calculate SIDE, positions, P/L, and total bottom up
-  for (let i = filledData.length - 1; i >= 0; i--) {
-    const row = filledData[i];
-    // Step 1: SMA1 comparison
-    if (
-      i === filledData.length - 1 ||
-      (sma1Values[i] ?? 0) > (sma1Values[i + 1] ?? 0)
-    ) {
-      SIDE[i] = 1; // Long
-    } else {
-      SIDE[i] = -1; // Short
-    }
+  // Calculate strategy using TrendFollow
+  const result = calculateTrendFollowStrategy(
+    filledData,
+    pairStates[currentPair].params,
+    isLongOnly,
+  );
 
-    // Step 2: STD DEV check
-    if (stdDevValues[i] > stdDevCutOffValue) {
-      SIDE[i] = 0; // No position
-    }
-
-    // Step 3: SMA1 vs SMA2 check
-    if ((sma1Values[i] ?? 0) < (sma2Values[i] ?? 0)) {
-      SIDE[i] = 0; // No position
-    }
-
-    // Step 4: Long Only filter
-    const toggleLongOnly = document.getElementById(
-      "toggleLongOnly",
-    ) as HTMLInputElement;
-    if (toggleLongOnly?.checked && SIDE[i] === -1) {
-      SIDE[i] = 0; // No position if short and long-only enabled
-    }
-
-    // Validate SIDE
-    if (![1, -1, 0].includes(SIDE[i])) {
-      throw new Error("Invalid SIDE value");
-    }
-
-    // Calculate Position
-    if (i === filledData.length - 1 || SIDE[i] !== SIDE[i + 1]) {
-      positions[i] = SIDE[i] === 0 ? 0 : (row[4] as number); // Close position (0) or new position
-    } else {
-      positions[i] = lastPosition;
-    }
-    lastPosition = positions[i];
-
-    // Calculate P/L
-    if (i < filledData.length - 1 && positions[i + 1] !== 0) {
-      if (SIDE[i + 1] === 1) {
-        // Previous was long
-        plValues[i] = (row[4] as number) - positions[i + 1];
-      } else if (SIDE[i + 1] === -1) {
-        // Previous was short
-        plValues[i] = positions[i + 1] - (row[4] as number);
-      } else if (SIDE[i + 1] === 0) {
-        // No previous position
-        plValues[i] = 0;
-      }
-      // Add P/L to running total on SIDE change
-      if (i < filledData.length - 1 && SIDE[i] !== SIDE[i + 1]) {
-        runningTotal += plValues[i];
-      }
-    }
-    totalValues[i] = runningTotal;
-  }
+  const {
+    sma1Values,
+    sma2Values,
+    stdDevValues,
+    SIDE,
+    positions,
+    plValues,
+    totalValues,
+  } = result;
 
   // Render table rows
   data.forEach((row, index) => {
@@ -378,6 +273,9 @@ function changePair(): void {
     if (pairLabel) {
       pairLabel.textContent = currentPair;
     }
+
+    // Update input boxes with new pair's params
+    updateInputsFromParams();
 
     // Restore new pair's state
     existingData = pairStates[currentPair].existingData;
@@ -702,11 +600,71 @@ function downloadCsv(): void {
 
 // Auto-load default pair on page load
 window.addEventListener("DOMContentLoaded", () => {
+  // Render strategy UI
+  const strategyControlsContainer = document.getElementById("strategyControls");
+  const strategyTableContainer = document.getElementById("strategyTable");
+
+  if (strategyControlsContainer) {
+    strategyControlsContainer.innerHTML = renderStrategyControls();
+  }
+  if (strategyTableContainer) {
+    strategyTableContainer.innerHTML = renderStrategyTable();
+  }
+
   // Ensure pair label matches the default
   const pairLabel = document.getElementById("currentPairLabel");
   if (pairLabel) {
     pairLabel.textContent = currentPair;
   }
+
+  // Initialize input boxes with default pair's params
+  updateInputsFromParams();
+
+  // Add event listeners to input boxes
+  const sma1Input = document.getElementById("sma1Periods");
+  const sma2Input = document.getElementById("sma2Periods");
+  const stdDevPeriodsInput = document.getElementById("stdDevPeriods");
+  const stdDevCutOffInput = document.getElementById("stdDevCutOff");
+
+  if (sma1Input)
+    sma1Input.addEventListener("change", () => {
+      if (existingData) updateTable(existingData);
+    });
+  if (sma2Input)
+    sma2Input.addEventListener("change", () => {
+      if (existingData) updateTable(existingData);
+    });
+  if (stdDevPeriodsInput)
+    stdDevPeriodsInput.addEventListener("change", () => {
+      if (existingData) updateTable(existingData);
+    });
+  if (stdDevCutOffInput)
+    stdDevCutOffInput.addEventListener("change", () => {
+      if (existingData) updateTable(existingData);
+    });
+
+  // Add event listeners to radio buttons
+  const radioButtons = document.querySelectorAll('input[name="pairSelect"]');
+  radioButtons.forEach((radio) => {
+    radio.addEventListener("change", changePair);
+  });
+
+  // Add event listeners to buttons
+  const getDataBtn = document.getElementById("getDataBtn");
+  const saveJsonBtn = document.getElementById("saveJsonBtn");
+  const downloadCsvBtn = document.getElementById("downloadCsvBtn");
+  const jsonFileInput = document.getElementById("jsonFileInput");
+  const toggleColumnsCheckbox = document.getElementById("toggleColumns");
+  const toggleLongOnlyCheckbox = document.getElementById("toggleLongOnly");
+
+  if (getDataBtn) getDataBtn.addEventListener("click", getNewData);
+  if (saveJsonBtn) saveJsonBtn.addEventListener("click", saveNewJson);
+  if (downloadCsvBtn) downloadCsvBtn.addEventListener("click", downloadCsv);
+  if (jsonFileInput) jsonFileInput.addEventListener("change", uploadJson);
+  if (toggleColumnsCheckbox)
+    toggleColumnsCheckbox.addEventListener("change", toggleColumns);
+  if (toggleLongOnlyCheckbox)
+    toggleLongOnlyCheckbox.addEventListener("change", toggleLongOnly);
 
   loadSavedData();
 });
