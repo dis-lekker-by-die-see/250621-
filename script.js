@@ -90,6 +90,7 @@ function renderPairSelector() {
             ${pair.value === APP_CONFIG.defaultPair ? "checked" : ""} />
           ${pair.label}
         </label>
+        <br />
       `)
         .join("")}
     </div>

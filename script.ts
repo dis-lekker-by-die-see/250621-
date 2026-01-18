@@ -114,6 +114,7 @@ function renderPairSelector(): string {
             ${pair.value === APP_CONFIG.defaultPair ? "checked" : ""} />
           ${pair.label}
         </label>
+        <br />
       `,
         )
         .join("")}
