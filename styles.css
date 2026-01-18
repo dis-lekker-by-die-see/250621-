@@ -42,7 +42,7 @@ body {
   border: 1px solid #ccc;
   padding: 10px;
   margin-bottom: 20px;
-  max-height: 200px;
+  max-height: 150px;
   overflow-y: auto;
 }
 .strategy-selector {
