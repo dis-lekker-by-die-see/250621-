@@ -13,6 +13,6 @@
     "allowJs": false,
     "noEmitOnError": true
   },
-  "include": ["script.ts"],
-  "exclude": ["node_modules", "script.js"]
+  "include": ["script.ts", "TrendFollow.ts", "TrendHodl.ts"],
+  "exclude": ["node_modules", "*.js"]
 }

@@ -5,12 +5,14 @@ export const DEFAULT_PARAMS = {
         sma2Periods: 11,
         stdDevPeriods: 3,
         stdDevCutOff: 4.1,
+        longOnly: false,
     },
     BTC_JPY: {
         sma1Periods: 2,
         sma2Periods: 11,
         stdDevPeriods: 3,
         stdDevCutOff: 4.1,
+        longOnly: true,
     },
 };
 // EMA calculation
@@ -89,8 +91,15 @@ function calculateStdDev(data, stdDevPeriods) {
 }
 // Main strategy calculation
 export function calculateTrendFollowStrategy(data, params, isLongOnly) {
+    console.log("calculateTrendFollowStrategy called with params:", params);
+    // Get longOnly from params or checkbox
+    if (isLongOnly === undefined) {
+        isLongOnly = params.longOnly;
+    }
+    console.log("Long Only:", isLongOnly);
     const sma1Values = calculateSMA1(data, params.sma1Periods);
     const sma2Values = calculateSMA2(data, params.sma2Periods);
+    console.log("SMA1[0]:", sma1Values[0], "SMA2[0]:", sma2Values[0]);
     const stdDevValues = calculateStdDev(data, params.stdDevPeriods);
     const SIDE = new Array(data.length).fill(0);
     const positions = new Array(data.length).fill(0);
@@ -161,7 +170,8 @@ export function calculateTrendFollowStrategy(data, params, isLongOnly) {
     };
 }
 // Render strategy controls HTML
-export function renderStrategyControls() {
+export function renderStrategyControls(pair) {
+    const showLongOnly = pair !== "BTC_JPY";
     return `
     <div class="controls">
       <label for="sma1Periods">SMA1</label>
@@ -181,10 +191,10 @@ export function renderStrategyControls() {
         <input type="checkbox" id="toggleColumns" unchecked />
         OHLC Columns
       </label>
-      <label>
+      ${showLongOnly ? `<label>
         <input type="checkbox" id="toggleLongOnly" unchecked />
         Long Only
-      </label>
+      </label>` : ''}
     </div>
   `;
 }
@@ -221,4 +231,111 @@ export function renderStrategyTable() {
       </table>
     </div>
   `;
+}
+// Render table rows
+export function renderTableRows(tbody, data, filledData, result, formatJstDate, formatPrice) {
+    const { sma1Values, sma2Values, stdDevValues, SIDE, positions, plValues, totalValues, } = result;
+    data.forEach((row, index) => {
+        const tr = document.createElement("tr");
+        let closeBgColor = "";
+        let sideBgColor = SIDE[index] === 1
+            ? "background-color: #c4eccc;"
+            : SIDE[index] === -1
+                ? "background-color: #fcc4cc;"
+                : "background-color: #fcec9c;";
+        if (index < filledData.length - 1) {
+            const nextClose = filledData[index + 1][4];
+            const currentClose = filledData[index][4];
+            if (currentClose !== 0 && nextClose !== 0) {
+                closeBgColor =
+                    currentClose > nextClose
+                        ? "background-color: #c4eccc;"
+                        : currentClose < nextClose
+                            ? "background-color: #fcc4cc;"
+                            : "";
+            }
+        }
+        tr.innerHTML = `
+      <td>${index + 1}</td>
+      <td>${formatJstDate(row[0])}</td>
+      <td style="${closeBgColor}">${formatPrice(filledData[index][4])}</td>
+      <td style="${sideBgColor}">${SIDE[index]}</td>
+      <td>${formatPrice(positions[index])}</td>
+      <td>${formatPrice(plValues[index])}</td>
+      <td>${formatPrice(totalValues[index])}</td>
+      <td>${formatPrice(sma1Values[index])}</td>
+      <td>${formatPrice(sma2Values[index])}</td>
+      <td>${stdDevValues[index].toFixed(4)}</td>
+      <td class="extra">${row[0]}</td>
+      <td class="extra">${formatPrice(row[1])}</td>
+      <td class="extra">${formatPrice(row[2])}</td>
+      <td class="extra">${formatPrice(row[3])}</td>
+      <td class="extra">${formatPrice(row[4])}</td>
+      <td class="extra">${row[5] ?? "0"}</td>
+      <td class="extra">${row[6] ?? "0"}</td>
+      <td class="extra">${row[7] ?? "0"}</td>
+      <td class="extra">${row[8] ?? "0"}</td>
+      <td class="extra">${row[9] ?? "0"}</td>
+    `;
+        tbody.appendChild(tr);
+    });
+}
+// Toggle OHLC columns visibility
+export function toggleColumns() {
+    const toggleColumnsCheckbox = document.getElementById("toggleColumns");
+    const isChecked = toggleColumnsCheckbox?.checked ?? true;
+    const extraColumns = document.querySelectorAll(".extra");
+    extraColumns.forEach((col) => {
+        col.style.display = isChecked ? "" : "none";
+    });
+}
+// Setup strategy-specific event listeners
+export function setupEventListeners(updateTableCallback, getCurrentData) {
+    console.log("TrendFollow setupEventListeners called");
+    // Long Only toggle
+    const toggleLongOnlyCheckbox = document.getElementById("toggleLongOnly");
+    console.log("Long Only checkbox found:", !!toggleLongOnlyCheckbox);
+    if (toggleLongOnlyCheckbox) {
+        toggleLongOnlyCheckbox.addEventListener("change", () => {
+            console.log("Long Only checkbox changed");
+            const data = getCurrentData();
+            if (data)
+                updateTableCallback(data);
+        });
+    }
+}
+// Update input fields from params
+export function updateInputsFromParams(params) {
+    const sma1Input = document.getElementById("sma1Periods");
+    const sma2Input = document.getElementById("sma2Periods");
+    const stdDevPeriodsInput = document.getElementById("stdDevPeriods");
+    const stdDevCutOffInput = document.getElementById("stdDevCutOff");
+    const longOnlyCheckbox = document.getElementById("toggleLongOnly");
+    if (sma1Input)
+        sma1Input.value = params.sma1Periods.toString();
+    if (sma2Input)
+        sma2Input.value = params.sma2Periods.toString();
+    if (stdDevPeriodsInput)
+        stdDevPeriodsInput.value = params.stdDevPeriods.toString();
+    if (stdDevCutOffInput)
+        stdDevCutOffInput.value = params.stdDevCutOff.toString();
+    if (longOnlyCheckbox)
+        longOnlyCheckbox.checked = params.longOnly;
+}
+// Save input fields to params
+export function saveParamsFromInputs() {
+    const sma1Input = document.getElementById("sma1Periods");
+    const sma2Input = document.getElementById("sma2Periods");
+    const stdDevPeriodsInput = document.getElementById("stdDevPeriods");
+    const stdDevCutOffInput = document.getElementById("stdDevCutOff");
+    const longOnlyCheckbox = document.getElementById("toggleLongOnly");
+    const params = {
+        sma1Periods: parseFloat(sma1Input?.value) || 2,
+        sma2Periods: parseFloat(sma2Input?.value) || 11,
+        stdDevPeriods: parseInt(stdDevPeriodsInput?.value) || 3,
+        stdDevCutOff: parseFloat(stdDevCutOffInput?.value) || 4.1,
+        longOnly: longOnlyCheckbox?.checked ?? false,
+    };
+    console.log("TrendFollow saveParamsFromInputs:", params);
+    return params;
 }

@@ -42,6 +42,27 @@ body {
   border: 1px solid #ccc;
   padding: 10px;
   margin-bottom: 20px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+.strategy-selector {
+  margin: 10px;
+  padding: 10px;
+  background-color: #ffffff;
+  border: 2px solid #28a745;
+  border-radius: 4px;
+  display: block;
+  margin-bottom: 15px;
+  width: fit-content;
+}
+.strategy-selector .radio-label {
+  margin-right: 20px;
+  cursor: pointer;
+  font-weight: normal;
+}
+.strategy-selector input[type="radio"] {
+  margin-right: 5px;
+  cursor: pointer;
 }
 button {
   margin: 10px;

@@ -8,16 +8,7 @@
   </head>
   <body>
     <!-- <h1>1 Day OHLC Data</h1> -->
-    <div class="pair-selector">
-      <label class="radio-label">
-        <input type="radio" name="pairSelect" value="FX_BTC_JPY" checked />
-        FX_BTC_JPY
-      </label>
-      <label class="radio-label">
-        <input type="radio" name="pairSelect" value="BTC_JPY" />
-        BTC_JPY
-      </label>
-    </div>
+    <div id="pairSelector"></div>
     <div style="clear: both"></div>
     <button id="getDataBtn" disabled>Update Data</button>
     <button id="saveJsonBtn">Download JSON</button>
@@ -25,6 +16,7 @@
     <br />
     <input type="file" id="jsonFileInput" accept=".json" />
     <div id="output"></div>
+    <div id="strategySelector"></div>
     <div id="strategyControls"></div>
     <h2 id="currentPairLabel" class="pair-label">FX_BTC_JPY</h2>
     <div id="strategyTable"></div>

@@ -1,37 +1,45 @@
-// Import strategy types and functions
-import {
-  TradingPair,
-  OHLCEntry,
-  TrendFollowParams,
-  DEFAULT_PARAMS,
-  calculateTrendFollowStrategy,
-  renderStrategyControls,
-  renderStrategyTable,
-} from "./TrendFollow.js";
+// Import common types
+import type { TradingPair, OHLCEntry } from "./TrendFollow.js";
+
+// App configuration
+const APP_CONFIG = {
+  defaultPair: "FX_BTC_JPY" as TradingPair,
+  defaultStrategy: "TrendFollow",
+  availablePairs: [
+    { value: "FX_BTC_JPY" as TradingPair, label: "FX_BTC_JPY" },
+    { value: "BTC_JPY" as TradingPair, label: "BTC_JPY" },
+  ],
+  availableStrategies: [
+    { value: "TrendFollow", label: "Trend Follow" },
+    { value: "TrendHodl", label: "Trend HODL" },
+  ],
+};
 
 interface PairState {
   existingData: OHLCEntry[] | null;
   updatedJson: OHLCEntry[] | null;
   logMessages: string[];
-  params: TrendFollowParams;
+  params: any; // Strategy-specific params
 }
 
 const apiUrl: string = "https://lightchart.bitflyer.com/api/ohlc";
-let currentPair: TradingPair = "FX_BTC_JPY";
+let currentPair: TradingPair = APP_CONFIG.defaultPair;
+let currentStrategy: string = APP_CONFIG.defaultStrategy;
+let strategyModule: any = null;
 
-// Per-pair state storage
+// Per-pair state storage (params will be initialized after strategy loads)
 const pairStates: Record<TradingPair, PairState> = {
   FX_BTC_JPY: {
     existingData: null,
     updatedJson: null,
     logMessages: [],
-    params: { ...DEFAULT_PARAMS.FX_BTC_JPY },
+    params: {},
   },
   BTC_JPY: {
     existingData: null,
     updatedJson: null,
     logMessages: [],
-    params: { ...DEFAULT_PARAMS.BTC_JPY },
+    params: {},
   },
 };
 
@@ -91,6 +99,131 @@ function formatJstDate(timestampMs: number): string {
   return `${year}-${month}-${day}_${hours}:${minutes}`;
 }
 
+// Render pair selector HTML
+function renderPairSelector(): string {
+  return `
+    <div class="pair-selector">
+      ${APP_CONFIG.availablePairs
+        .map(
+          (pair) => `
+        <label class="radio-label">
+          <input type="radio" name="pairSelect" value="${pair.value}" 
+            ${pair.value === APP_CONFIG.defaultPair ? "checked" : ""} />
+          ${pair.label}
+        </label>
+      `,
+        )
+        .join("")}
+    </div>
+  `;
+}
+
+// Render strategy selector HTML
+function renderStrategySelector(): string {
+  return `
+    <div class="strategy-selector">
+      ${APP_CONFIG.availableStrategies
+        .map(
+          (strat) => `
+        <label class="radio-label">
+          <input type="radio" name="strategySelect" value="${strat.value}"
+            ${strat.value === APP_CONFIG.defaultStrategy ? "checked" : ""} />
+          ${strat.label}
+        </label>
+      `,
+        )
+        .join("")}
+    </div>
+  `;
+}
+
+// Switch to a different strategy
+async function switchStrategy(strategyName: string): Promise<void> {
+  try {
+    // Dynamic import of strategy module
+    strategyModule = await import(`./${strategyName}.js`);
+
+    // Initialize params from strategy defaults for all pairs
+    APP_CONFIG.availablePairs.forEach((pair) => {
+      pairStates[pair.value].params = {
+        ...strategyModule.DEFAULT_PARAMS[pair.value],
+      };
+    });
+
+    // Render strategy UI
+    const strategyControlsContainer =
+      document.getElementById("strategyControls");
+    const strategyTableContainer = document.getElementById("strategyTable");
+
+    if (strategyControlsContainer) {
+      strategyControlsContainer.innerHTML =
+        strategyModule.renderStrategyControls(currentPair);
+    }
+    if (strategyTableContainer) {
+      strategyTableContainer.innerHTML = strategyModule.renderStrategyTable();
+    }
+
+    // Re-attach event listeners for dynamically created elements
+    attachStrategyEventListeners();
+
+    // Setup strategy-specific event listeners if available
+    if (strategyModule.setupEventListeners) {
+      strategyModule.setupEventListeners(
+        updateTable,
+        () => pairStates[currentPair].existingData,
+        saveParamsFromInputs,
+      );
+    }
+
+    // Update table with current pair's data if available
+    const existingData = pairStates[currentPair].existingData;
+    if (existingData) {
+      updateTable(existingData);
+    }
+
+    log(`Strategy switched to: ${strategyName}`);
+  } catch (error) {
+    log(`Error loading strategy ${strategyName}: ${error}`);
+  }
+}
+
+// Attach event listeners to strategy-specific controls
+function attachStrategyEventListeners(): void {
+  // Update inputs from current pair's params
+  updateInputsFromParams();
+
+  // Set min date for date picker if it exists
+  const startDateInput = document.getElementById(
+    "startDate",
+  ) as HTMLInputElement;
+  if (startDateInput && strategyModule && strategyModule.getMinStartDate) {
+    const minDate = strategyModule.getMinStartDate(currentPair);
+    startDateInput.min = minDate;
+  }
+
+  // Get all input elements and attach change listeners
+  const allInputs = document.querySelectorAll(
+    "#strategyControls input[type='number'], #strategyControls input[type='date']",
+  );
+  allInputs.forEach((input) => {
+    input.addEventListener("change", () => {
+      saveParamsFromInputs();
+      const data = pairStates[currentPair].existingData;
+      console.log("Input change - existingData:", !!data);
+      if (data) updateTable(data);
+    });
+  });
+
+  // Attach listeners to checkboxes (if they exist)
+  const toggleColumnsCheckbox = document.getElementById("toggleColumns");
+  if (toggleColumnsCheckbox && strategyModule && strategyModule.toggleColumns) {
+    toggleColumnsCheckbox.addEventListener(
+      "change",
+      strategyModule.toggleColumns,
+    );
+  }
+}
+
 function formatPrice(value: number | null): string {
   if (value == null) return "0";
   return Math.round(value).toLocaleString("en-US", { useGrouping: true });
@@ -98,43 +231,16 @@ function formatPrice(value: number | null): string {
 
 // Update input boxes with current pair's params
 function updateInputsFromParams(): void {
-  const params = pairStates[currentPair].params;
-  const sma1Input = document.getElementById("sma1Periods") as HTMLInputElement;
-  const sma2Input = document.getElementById("sma2Periods") as HTMLInputElement;
-  const stdDevPeriodsInput = document.getElementById(
-    "stdDevPeriods",
-  ) as HTMLInputElement;
-  const stdDevCutOffInput = document.getElementById(
-    "stdDevCutOff",
-  ) as HTMLInputElement;
-
-  if (sma1Input) sma1Input.value = params.sma1Periods.toString();
-  if (sma2Input) sma2Input.value = params.sma2Periods.toString();
-  if (stdDevPeriodsInput)
-    stdDevPeriodsInput.value = params.stdDevPeriods.toString();
-  if (stdDevCutOffInput)
-    stdDevCutOffInput.value = params.stdDevCutOff.toString();
+  if (strategyModule && strategyModule.updateInputsFromParams) {
+    strategyModule.updateInputsFromParams(pairStates[currentPair].params);
+  }
 }
 
 // Save input values to current pair's params
 function saveParamsFromInputs(): void {
-  const sma1Input = document.getElementById("sma1Periods") as HTMLInputElement;
-  const sma2Input = document.getElementById("sma2Periods") as HTMLInputElement;
-  const stdDevPeriodsInput = document.getElementById(
-    "stdDevPeriods",
-  ) as HTMLInputElement;
-  const stdDevCutOffInput = document.getElementById(
-    "stdDevCutOff",
-  ) as HTMLInputElement;
-
-  pairStates[currentPair].params.sma1Periods =
-    parseFloat(sma1Input?.value || "2") || 2;
-  pairStates[currentPair].params.sma2Periods =
-    parseFloat(sma2Input?.value || "11") || 11;
-  pairStates[currentPair].params.stdDevPeriods =
-    parseInt(stdDevPeriodsInput?.value || "3") || 3;
-  pairStates[currentPair].params.stdDevCutOff =
-    parseFloat(stdDevCutOffInput?.value || "4.1") || 4.1;
+  if (strategyModule && strategyModule.saveParamsFromInputs) {
+    pairStates[currentPair].params = strategyModule.saveParamsFromInputs();
+  }
 }
 
 function updateTable(data: OHLCEntry[]): void {
@@ -158,95 +264,50 @@ function updateTable(data: OHLCEntry[]): void {
     }
   }
 
-  // Get long-only setting
-  const toggleLongOnly = document.getElementById(
-    "toggleLongOnly",
-  ) as HTMLInputElement;
-  const isLongOnly = toggleLongOnly?.checked ?? false;
+  // Calculate strategy using current strategy module
+  if (!strategyModule) {
+    log("Strategy module not loaded");
+    return;
+  }
 
-  // Calculate strategy using TrendFollow
-  const result = calculateTrendFollowStrategy(
-    filledData,
+  // Get the appropriate calculation function
+  const calculateFunc =
+    strategyModule.calculateTrendHodlStrategy ||
+    strategyModule.calculateTrendFollowStrategy;
+
+  if (!calculateFunc) {
+    log("Strategy calculation function not found");
+    return;
+  }
+
+  console.log(
+    "About to call calculateFunc with params:",
     pairStates[currentPair].params,
-    isLongOnly,
   );
+  // Let strategy determine parameters (including longOnly if applicable)
+  const result = calculateFunc(filledData, pairStates[currentPair].params);
 
-  const {
-    sma1Values,
-    sma2Values,
-    stdDevValues,
-    SIDE,
-    positions,
-    plValues,
-    totalValues,
-  } = result;
+  // Let strategy render its own table rows
+  if (strategyModule.renderTableRows) {
+    strategyModule.renderTableRows(
+      tbody,
+      data,
+      filledData,
+      result,
+      formatJstDate,
+      formatPrice,
+    );
 
-  // Render table rows
-  data.forEach((row, index) => {
-    const tr = document.createElement("tr");
-    let closeBgColor = "";
-    let sideBgColor =
-      SIDE[index] === 1
-        ? "background-color: #c4eccc;"
-        : SIDE[index] === -1
-          ? "background-color: #fcc4cc;"
-          : "background-color: #fcec9c;";
-    if (index < filledData.length - 1) {
-      const nextClose = filledData[index + 1][4] as number;
-      const currentClose = filledData[index][4] as number;
-      if (currentClose !== 0 && nextClose !== 0) {
-        closeBgColor =
-          currentClose > nextClose
-            ? "background-color: #c4eccc;"
-            : currentClose < nextClose
-              ? "background-color: #fcc4cc;"
-              : "";
-      }
+    // Call strategy's post-render function if it exists
+    if (strategyModule.toggleColumns) {
+      strategyModule.toggleColumns();
     }
-    tr.innerHTML = `
-      <td>${index + 1}</td>
-      <td>${formatJstDate(row[0])}</td>
-      <td style="${closeBgColor}">${formatPrice(filledData[index][4] as number)}</td>
-      <td style="${sideBgColor}">${SIDE[index]}</td>
-      <td>${formatPrice(positions[index])}</td>
-      <td>${formatPrice(plValues[index])}</td>
-      <td>${formatPrice(totalValues[index])}</td>
-      <td>${formatPrice(sma1Values[index])}</td>
-      <td>${formatPrice(sma2Values[index])}</td>
-      <td>${stdDevValues[index].toFixed(4)}</td>
-      <td class="extra">${row[0]}</td>
-      <td class="extra">${formatPrice(row[1])}</td>
-      <td class="extra">${formatPrice(row[2])}</td>
-      <td class="extra">${formatPrice(row[3])}</td>
-      <td class="extra">${formatPrice(row[4])}</td>
-      <td class="extra">${row[5] ?? "0"}</td>
-      <td class="extra">${row[6] ?? "0"}</td>
-      <td class="extra">${row[7] ?? "0"}</td>
-      <td class="extra">${row[8] ?? "0"}</td>
-      <td class="extra">${row[9] ?? "0"}</td>
-    `;
-    tbody.appendChild(tr);
-  });
-  toggleColumns();
-}
-
-function toggleColumns(): void {
-  const toggleColumnsCheckbox = document.getElementById(
-    "toggleColumns",
-  ) as HTMLInputElement;
-  const isChecked = toggleColumnsCheckbox?.checked ?? true;
-  const extraColumns = document.querySelectorAll(".extra");
-  extraColumns.forEach((col) => {
-    (col as HTMLElement).style.display = isChecked ? "" : "none";
-  });
-}
-
-function toggleLongOnly(): void {
-  updateTable(existingData || updatedJson || []);
+  } else {
+    log("Strategy renderTableRows function not found");
+  }
 }
 
 function changePair(): void {
-  console.log("changePair called");
   const selectedRadio = document.querySelector(
     'input[name="pairSelect"]:checked',
   ) as HTMLInputElement;
@@ -333,6 +394,7 @@ async function loadSavedData(): Promise<void> {
     }
     const data: OHLCEntry[] = await response.json();
     existingData = data;
+    pairStates[currentPair].existingData = data;
     log(`Load Saved Data: Loaded ${existingData.length} entries`);
     updateTable(existingData);
     const jsonFileInput = document.getElementById(
@@ -364,6 +426,7 @@ async function uploadJson(): Promise<void> {
         existingData = JSON.parse(
           event.target?.result as string,
         ) as OHLCEntry[];
+        pairStates[currentPair].existingData = existingData;
         log(`Upload JSON: Loaded ${existingData!.length} entries`);
         updateTable(existingData!);
         const getDataBtn = document.getElementById(
@@ -450,6 +513,7 @@ async function getNewData(): Promise<void> {
       );
       if (newData.length > 0) {
         existingData = newData.concat(existingData);
+        pairStates[currentPair].existingData = existingData;
         log(`1-Day Data Prepended: ${newData.length} entries added`);
       } else {
         log("No New 1-Day Data: No entries to prepend");
@@ -519,6 +583,7 @@ async function getNewData(): Promise<void> {
           }
           if (newClose !== null) {
             existingData[0][4] = newClose;
+            pairStates[currentPair].existingData = existingData;
             log(`Updated Latest 1-Day CLOSE to ${newClose}`);
           } else {
             log(
@@ -599,17 +664,21 @@ function downloadCsv(): void {
 }
 
 // Auto-load default pair on page load
-window.addEventListener("DOMContentLoaded", () => {
-  // Render strategy UI
-  const strategyControlsContainer = document.getElementById("strategyControls");
-  const strategyTableContainer = document.getElementById("strategyTable");
+window.addEventListener("DOMContentLoaded", async () => {
+  // Inject pair selector
+  const pairSelectorContainer = document.getElementById("pairSelector");
+  if (pairSelectorContainer) {
+    pairSelectorContainer.innerHTML = renderPairSelector();
+  }
 
-  if (strategyControlsContainer) {
-    strategyControlsContainer.innerHTML = renderStrategyControls();
+  // Inject strategy selector
+  const strategySelectorContainer = document.getElementById("strategySelector");
+  if (strategySelectorContainer) {
+    strategySelectorContainer.innerHTML = renderStrategySelector();
   }
-  if (strategyTableContainer) {
-    strategyTableContainer.innerHTML = renderStrategyTable();
-  }
+
+  // Load default strategy
+  await switchStrategy(APP_CONFIG.defaultStrategy);
 
   // Ensure pair label matches the default
   const pairLabel = document.getElementById("currentPairLabel");
@@ -617,36 +686,24 @@ window.addEventListener("DOMContentLoaded", () => {
     pairLabel.textContent = currentPair;
   }
 
-  // Initialize input boxes with default pair's params
-  updateInputsFromParams();
-
-  // Add event listeners to input boxes
-  const sma1Input = document.getElementById("sma1Periods");
-  const sma2Input = document.getElementById("sma2Periods");
-  const stdDevPeriodsInput = document.getElementById("stdDevPeriods");
-  const stdDevCutOffInput = document.getElementById("stdDevCutOff");
-
-  if (sma1Input)
-    sma1Input.addEventListener("change", () => {
-      if (existingData) updateTable(existingData);
-    });
-  if (sma2Input)
-    sma2Input.addEventListener("change", () => {
-      if (existingData) updateTable(existingData);
-    });
-  if (stdDevPeriodsInput)
-    stdDevPeriodsInput.addEventListener("change", () => {
-      if (existingData) updateTable(existingData);
-    });
-  if (stdDevCutOffInput)
-    stdDevCutOffInput.addEventListener("change", () => {
-      if (existingData) updateTable(existingData);
-    });
-
-  // Add event listeners to radio buttons
-  const radioButtons = document.querySelectorAll('input[name="pairSelect"]');
-  radioButtons.forEach((radio) => {
+  // Add event listeners to pair radio buttons
+  const pairRadioButtons = document.querySelectorAll(
+    'input[name="pairSelect"]',
+  );
+  pairRadioButtons.forEach((radio) => {
     radio.addEventListener("change", changePair);
+  });
+
+  // Add event listeners to strategy radio buttons
+  const strategyRadioButtons = document.querySelectorAll(
+    'input[name="strategySelect"]',
+  );
+  strategyRadioButtons.forEach((radio) => {
+    radio.addEventListener("change", async (e) => {
+      const target = e.target as HTMLInputElement;
+      currentStrategy = target.value;
+      await switchStrategy(currentStrategy);
+    });
   });
 
   // Add event listeners to buttons
@@ -654,17 +711,11 @@ window.addEventListener("DOMContentLoaded", () => {
   const saveJsonBtn = document.getElementById("saveJsonBtn");
   const downloadCsvBtn = document.getElementById("downloadCsvBtn");
   const jsonFileInput = document.getElementById("jsonFileInput");
-  const toggleColumnsCheckbox = document.getElementById("toggleColumns");
-  const toggleLongOnlyCheckbox = document.getElementById("toggleLongOnly");
 
   if (getDataBtn) getDataBtn.addEventListener("click", getNewData);
   if (saveJsonBtn) saveJsonBtn.addEventListener("click", saveNewJson);
   if (downloadCsvBtn) downloadCsvBtn.addEventListener("click", downloadCsv);
   if (jsonFileInput) jsonFileInput.addEventListener("change", uploadJson);
-  if (toggleColumnsCheckbox)
-    toggleColumnsCheckbox.addEventListener("change", toggleColumns);
-  if (toggleLongOnlyCheckbox)
-    toggleLongOnlyCheckbox.addEventListener("change", toggleLongOnly);
 
   loadSavedData();
 });
