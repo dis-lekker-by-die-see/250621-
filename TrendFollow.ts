@@ -248,10 +248,10 @@ export function renderStrategyControls(pair?: TradingPair): string {
   const showLongOnly = pair !== "BTC_JPY";
   return `
     <div class="controls">
-      <label for="sma1Periods">SMA1</label>
+      <label for="sma1Periods">MA1</label>
       <input type="number" id="sma1Periods" min="1" />
 
-      <label for="sma2Periods">SMA2</label>
+      <label for="sma2Periods">MA2</label>
       <input type="number" id="sma2Periods" min="1" />
       <br />
       <label for="stdDevPeriods">StdDev</label>
@@ -291,8 +291,8 @@ export function renderStrategyTable(): string {
             <th>Position</th>
             <th>P/L</th>
             <th>Total</th>
-            <th>SMA1</th>
-            <th>SMA2</th>
+            <th>MA1</th>
+            <th>MA2</th>
             <th>STD DEV</th>
             <th class="extra">Timestamp</th>
             <th class="extra">OPEN</th>

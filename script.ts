@@ -8,9 +8,9 @@ const APP_CONFIG = {
   availablePairs: [
     {
       value: "FX_BTC_JPY" as TradingPair,
-      label: "bitFlyer Bitcoin Derivative",
+      label: "BTC Derivative (bitFlyer)",
     },
-    { value: "BTC_JPY" as TradingPair, label: "Bitcoin Spot" },
+    { value: "BTC_JPY" as TradingPair, label: "BTC Spot" },
   ],
   availableStrategies: [
     { value: "TrendFollow", label: "Trend Follow" },

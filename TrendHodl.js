@@ -159,15 +159,14 @@ export function renderStrategyControls(pair) {
     }
     return `
     <div class="controls">
-      <label for="sma1Periods">SMA1</label>
+      <label for="sma1Periods">MA1</label>
       <input type="number" id="sma1Periods" min="1" />
-
-      <label for="sma2Periods">SMA2</label>
+      <label for="sma2Periods">MA2</label>
       <input type="number" id="sma2Periods" min="1" />
       <br />
       <label for="startDate">Start Date</label>
       <input type="date" id="startDate" />
-
+      <br />
       <label for="positionSizeYen">Position Size (¥)</label>
       <input type="number" id="positionSizeYen" step="1000" min="0" />
     </div>
@@ -189,8 +188,8 @@ export function renderStrategyTable() {
             <th>Total PnL</th>
             <th>Capital Value</th>
             <th>Profit %</th>
-            <th>SMA1</th>
-            <th>SMA2</th>
+            <th>MA1</th>
+            <th>MA2</th>
           </tr>
         </thead>
         <tbody></tbody>
