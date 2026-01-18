@@ -170,7 +170,7 @@ export function renderStrategyTable() {
             <th>PnL</th>
             <th>Total Position Size</th>
             <th>Total PnL</th>
-            <th>Total Value</th>
+            <th>Capital Value</th>
           </tr>
         </thead>
         <tbody></tbody>
@@ -183,7 +183,8 @@ export function renderTableRows(tbody, data, filledData, result, formatJstDate, 
     // Show message for unsupported pairs
     if (pair !== "BTC_JPY") {
         const tr = document.createElement("tr");
-        tr.innerHTML = '<td colspan="100" style="text-align: center; padding: 20px; font-style: italic; color: #666;">No Strategy Defined</td>';
+        tr.innerHTML =
+            '<td colspan="100" style="text-align: center; padding: 20px; font-style: italic; color: #666;">No Strategy Defined</td>';
         tbody.appendChild(tr);
         return;
     }
